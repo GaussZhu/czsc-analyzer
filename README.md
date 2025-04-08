@@ -179,6 +179,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 📬 Contact
 
 For questions, issues, or contributions, please open an issue on GitHub or contact me at:
-[your-email@example.com](mailto:zhu_gs@126.com)
+[zhu_gs@126.com](mailto:zhu_gs@126.com)
 
 ---
