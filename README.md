@@ -42,9 +42,9 @@ self.stock_list = [
 ]
 ```
 
-2. Run the script to start monitoring:
+2. Run the tool to start monitoring:
 ```bash
-python CZSC_Stock_Analysis_Tool.py
+python -m czsc_analyzer
 ```
 
 3. The script will automatically:
