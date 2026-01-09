@@ -68,6 +68,20 @@ class DataConfig:
 
 
 @dataclass
+class MySQLConfig:
+    """MySQL数据库配置"""
+    host: str = os.getenv('MYSQL_HOST', 'localhost')
+    port: int = int(os.getenv('MYSQL_PORT', '3306'))
+    user: str = os.getenv('MYSQL_USER', 'root')
+    password: str = os.getenv('MYSQL_PASSWORD', '')
+    database: str = os.getenv('MYSQL_DATABASE', 'stock_kline')
+    charset: str = 'utf8mb4'
+    
+    # 是否使用数据库作为数据源
+    use_mysql_data: bool = os.getenv('USE_MYSQL_DATA', 'True').lower() == 'true'
+
+
+@dataclass
 class StockListConfig:
     """股票列表配置"""
     # 默认监控的股票列表
@@ -90,6 +104,7 @@ class AppConfig:
     macd: MACDConfig = field(default_factory=MACDConfig)
     fractal: FractalConfig = field(default_factory=FractalConfig)
     data: DataConfig = field(default_factory=DataConfig)
+    mysql: MySQLConfig = field(default_factory=MySQLConfig)
     stock_list: StockListConfig = field(default_factory=StockListConfig)
     
     # 调试模式

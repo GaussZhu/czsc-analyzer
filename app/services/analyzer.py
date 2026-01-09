@@ -8,7 +8,7 @@ import pandas as pd
 import datetime
 from typing import Dict, Optional
 
-from app.core.data_fetcher import TDXDataFetcher
+from app.core.data_source import UnifiedDataSource, DataSourceType
 from app.core.indicators import TechnicalIndicators
 from app.core.fractal import FractalAnalyzer
 from app.core.stroke import StrokeAnalyzer
@@ -24,12 +24,27 @@ logger = get_analysis_logger()
 class StockAnalyzer:
     """股票分析服务"""
     
-    def __init__(self):
-        """初始化股票分析服务"""
+    def __init__(self, use_mysql: bool = None):
+        """
+        初始化股票分析服务
+        
+        Args:
+            use_mysql: 是否使用MySQL数据源，None则根据配置自动决定
+        """
         self.config = get_config()
         
-        # 初始化各个组件
-        self.data_fetcher = TDXDataFetcher()
+        # 决定数据源类型
+        if use_mysql is None:
+            source_type = DataSourceType.AUTO
+        elif use_mysql:
+            source_type = DataSourceType.MYSQL
+        else:
+            source_type = DataSourceType.TDX
+        
+        # 初始化统一数据源（支持TDX和MySQL）
+        self.data_source = UnifiedDataSource(source_type)
+        
+        # 初始化各个分析组件
         self.indicators = TechnicalIndicators()
         self.fractal_analyzer = FractalAnalyzer()
         self.stroke_analyzer = StrokeAnalyzer()
@@ -37,7 +52,7 @@ class StockAnalyzer:
         self.divergence_analyzer = DivergenceAnalyzer()
         self.signal_analyzer = SignalAnalyzer()
         
-        logger.info("股票分析服务初始化完成")
+        logger.info(f"股票分析服务初始化完成，数据源: {source_type.value}")
     
     def analyze_stock(
         self,
@@ -61,8 +76,13 @@ class StockAnalyzer:
         logger.info(f"开始分析股票: {stock_name}({stock_code}), 周期: {period}")
         
         try:
-            # 1. 获取数据
-            data = self.data_fetcher.get_stock_data(stock_code, market, period)
+            # 1. 获取数据（优先使用MySQL，失败则使用TDX）
+            data = self.data_source.get_stock_data(
+                stock_code, 
+                market, 
+                period,
+                prefer_mysql=True
+            )
             
             if data is None or len(data) < 30:
                 logger.warning(f"数据不足，无法分析: {stock_code}")
@@ -296,8 +316,8 @@ class StockAnalyzer:
     
     def __del__(self):
         """析构函数：确保连接关闭"""
-        if hasattr(self, 'data_fetcher'):
-            self.data_fetcher.disconnect()
+        if hasattr(self, 'data_source'):
+            self.data_source.disconnect()
 
 
 # 便捷函数
