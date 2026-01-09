@@ -24,7 +24,13 @@ def test_connection():
     config = get_config()
     
     print(f"\n数据库配置:")
-    print(f"  Host: {config.mysql.host}:{config.mysql.port}")
+    
+    # 检查是否使用Unix socket
+    unix_socket = config.mysql.unix_socket
+    if unix_socket:
+        print(f"  Unix Socket: {unix_socket}")
+    else:
+        print(f"  Host: {config.mysql.host}:{config.mysql.port}")
     print(f"  Database: {config.mysql.database}")
     print(f"  User: {config.mysql.user}")
     
@@ -35,7 +41,8 @@ def test_connection():
         port=config.mysql.port,
         user=config.mysql.user,
         password=config.mysql.password,
-        database=config.mysql.database
+        database=config.mysql.database,
+        unix_socket=unix_socket
     )
     
     if not connector.connect():

@@ -6,8 +6,12 @@ Configuration Management Module
 
 import os
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from datetime import time
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 
 @dataclass
@@ -76,6 +80,14 @@ class MySQLConfig:
     password: str = os.getenv('MYSQL_PASSWORD', '')
     database: str = os.getenv('MYSQL_DATABASE', 'stock_kline')
     charset: str = 'utf8mb4'
+    
+    # Unix socket路径（如果MYSQL_HOST以/开头或包含.sock，则视为socket路径）
+    @property
+    def unix_socket(self) -> Optional[str]:
+        """判断是否使用Unix socket连接"""
+        if self.host.startswith('/') or '.sock' in self.host:
+            return self.host
+        return os.getenv('MYSQL_UNIX_SOCKET', '')  # 默认不使用socket
     
     # 是否使用数据库作为数据源
     use_mysql_data: bool = os.getenv('USE_MYSQL_DATA', 'True').lower() == 'true'

@@ -25,7 +25,8 @@ class MySQLConnector:
         user: str = 'root',
         password: str = '',
         database: str = 'stock_kline',
-        charset: str = 'utf8mb4'
+        charset: str = 'utf8mb4',
+        unix_socket: str = None
     ):
         """
         初始化MySQL连接器
@@ -37,18 +38,26 @@ class MySQLConnector:
             password: 密码
             database: 数据库名
             charset: 字符集
+            unix_socket: Unix socket路径（如果提供，优先使用socket连接）
         """
         self.config = {
-            'host': host,
-            'port': port,
             'user': user,
             'password': password,
             'database': database,
             'charset': charset,
             'cursorclass': DictCursor
         }
+        
+        # 如果提供了unix_socket，使用socket连接（避免127.0.0.1权限问题）
+        if unix_socket:
+            self.config['unix_socket'] = unix_socket
+            logger.info(f"MySQL连接器初始化: socket={unix_socket}, database={database}")
+        else:
+            self.config['host'] = host
+            self.config['port'] = port
+            logger.info(f"MySQL连接器初始化: {host}:{port}/{database}")
+        
         self.connection = None
-        logger.info(f"MySQL连接器初始化: {host}:{port}/{database}")
     
     def connect(self) -> bool:
         """
