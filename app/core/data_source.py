@@ -46,13 +46,25 @@ class UnifiedDataSource:
         
         if self.config.mysql.use_mysql_data:
             try:
-                self.mysql_connector = MySQLConnector(
-                    host=self.config.mysql.host,
-                    port=self.config.mysql.port,
-                    user=self.config.mysql.user,
-                    password=self.config.mysql.password,
-                    database=self.config.mysql.database
-                )
+                # 检查是否使用Unix socket
+                unix_socket = self.config.mysql.unix_socket
+                if unix_socket:
+                    # 使用Unix socket连接
+                    self.mysql_connector = MySQLConnector(
+                        user=self.config.mysql.user,
+                        password=self.config.mysql.password,
+                        database=self.config.mysql.database,
+                        unix_socket=unix_socket
+                    )
+                else:
+                    # 使用TCP连接
+                    self.mysql_connector = MySQLConnector(
+                        host=self.config.mysql.host,
+                        port=self.config.mysql.port,
+                        user=self.config.mysql.user,
+                        password=self.config.mysql.password,
+                        database=self.config.mysql.database
+                    )
                 self.stock_dao = StockDAO(self.mysql_connector)
                 logger.info("MySQL数据源初始化成功")
             except Exception as e:

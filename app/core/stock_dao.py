@@ -97,8 +97,8 @@ class StockDAO:
             query += " AND date <= %s"
             params.append(end_date)
         
-        query += " ORDER BY date DESC LIMIT %s"
-        params.append(limit)
+        # LIMIT不能使用参数化查询，必须直接插入数值
+        query += f" ORDER BY date DESC LIMIT {limit}"
         
         df = self.db.query_to_dataframe(query, tuple(params))
         
@@ -157,8 +157,8 @@ class StockDAO:
             query += " AND datetime <= %s"
             params.append(end_datetime)
         
-        query += " ORDER BY datetime DESC LIMIT %s"
-        params.append(limit)
+        # LIMIT不能使用参数化查询，必须直接插入数值
+        query += f" ORDER BY datetime DESC LIMIT {limit}"
         
         df = self.db.query_to_dataframe(query, tuple(params))
         
@@ -216,8 +216,8 @@ class StockDAO:
             query += " AND date <= %s"
             params.append(end_date)
         
-        query += " ORDER BY date DESC LIMIT %s"
-        params.append(limit)
+        # LIMIT不能使用参数化查询，必须直接插入数值
+        query += f" ORDER BY date DESC LIMIT {limit}"
         
         df = self.db.query_to_dataframe(query, tuple(params))
         
@@ -240,8 +240,9 @@ class StockDAO:
         Returns:
             DataFrame: 预测数据
         """
-        query = "SELECT * FROM kronos_pred WHERE code = %s ORDER BY date DESC LIMIT %s"
-        df = self.db.query_to_dataframe(query, (code, limit))
+        # LIMIT不能使用参数化查询，必须直接插入数值
+        query = f"SELECT * FROM kronos_pred WHERE code = %s ORDER BY date DESC LIMIT {limit}"
+        df = self.db.query_to_dataframe(query, (code,))
         
         if df is not None and not df.empty:
             logger.info(f"获取Kronos预测: {code}, {len(df)}条")
@@ -259,8 +260,9 @@ class StockDAO:
         Returns:
             DataFrame: 评估数据
         """
-        query = "SELECT * FROM kronos_eval_daily WHERE code = %s ORDER BY date DESC LIMIT %s"
-        df = self.db.query_to_dataframe(query, (code, limit))
+        # LIMIT不能使用参数化查询，必须直接插入数值
+        query = f"SELECT * FROM kronos_eval_daily WHERE code = %s ORDER BY date DESC LIMIT {limit}"
+        df = self.db.query_to_dataframe(query, (code,))
         
         if df is not None and not df.empty:
             logger.info(f"获取Kronos评估: {code}, {len(df)}条")

@@ -44,8 +44,9 @@ class MySQLConnector:
             'user': user,
             'password': password,
             'database': database,
-            'charset': charset,
-            'cursorclass': DictCursor
+            'charset': charset
+            # 注意：不使用 DictCursor，因为 pd.read_sql 不兼容
+            # 'cursorclass': DictCursor
         }
         
         # 如果提供了unix_socket，使用socket连接（避免127.0.0.1权限问题）
@@ -177,10 +178,16 @@ class MySQLConnector:
             DataFrame: 查询结果
         """
         try:
-            with self.get_connection() as conn:
-                df = pd.read_sql(query, conn, params=params)
-                logger.debug(f"查询到 {len(df)} 条记录")
-                return df
+            # 确保连接正常
+            if not self.connection or not self.connection.open:
+                if not self.connect():
+                    logger.error("无法建立数据库连接")
+                    return None
+            
+            # 直接使用连接，不使用上下文管理器
+            df = pd.read_sql(query, self.connection, params=params)
+            logger.debug(f"查询到 {len(df)} 条记录")
+            return df
         
         except Exception as e:
             logger.error(f"查询转DataFrame失败: {str(e)}", exc_info=True)
