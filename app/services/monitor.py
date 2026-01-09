@@ -9,6 +9,13 @@ import datetime
 from typing import List, Dict
 
 from app.services.analyzer import StockAnalyzer
+from app.services.notifier import (
+    NotificationManager, 
+    EmailNotifier, 
+    WeChatWorkNotifier, 
+    DingTalkNotifier,
+    NotificationLevel
+)
 from app.utils.time_helper import TradingTimeHelper
 from app.config.settings import get_config
 from app.config.logging_config import get_monitor_logger
@@ -31,7 +38,59 @@ class StockMonitor:
         self.analyzer = StockAnalyzer()
         self.time_helper = TradingTimeHelper()
         
+        # 初始化通知管理器
+        self.notification_manager = NotificationManager()
+        self._setup_notifiers()
+        
         logger.info(f"股票监控服务初始化完成，监控 {len(self.stock_list)} 只股票")
+    
+    def _setup_notifiers(self):
+        """设置通知器"""
+        if not self.config.notification.enabled:
+            logger.info("通知功能未启用")
+            return
+        
+        # 邮件通知
+        if self.config.notification.email_enabled and self.config.notification.email_from:
+            try:
+                email_notifier = EmailNotifier(
+                    smtp_server=self.config.notification.smtp_server,
+                    smtp_port=self.config.notification.smtp_port,
+                    username=self.config.notification.email_username,
+                    password=self.config.notification.email_password,
+                    from_addr=self.config.notification.email_from,
+                    to_addrs=self.config.notification.email_to,
+                    enabled=True
+                )
+                self.notification_manager.add_notifier(email_notifier)
+                logger.info("✓ 邮件通知已启用")
+            except Exception as e:
+                logger.warning(f"邮件通知初始化失败: {str(e)}")
+        
+        # 企业微信通知
+        if self.config.notification.wechat_enabled and self.config.notification.wechat_webhook:
+            try:
+                wechat_notifier = WeChatWorkNotifier(
+                    webhook_url=self.config.notification.wechat_webhook,
+                    enabled=True
+                )
+                self.notification_manager.add_notifier(wechat_notifier)
+                logger.info("✓ 企业微信通知已启用")
+            except Exception as e:
+                logger.warning(f"企业微信通知初始化失败: {str(e)}")
+        
+        # 钉钉通知
+        if self.config.notification.dingtalk_enabled and self.config.notification.dingtalk_webhook:
+            try:
+                dingtalk_notifier = DingTalkNotifier(
+                    webhook_url=self.config.notification.dingtalk_webhook,
+                    secret=self.config.notification.dingtalk_secret if self.config.notification.dingtalk_secret else None,
+                    enabled=True
+                )
+                self.notification_manager.add_notifier(dingtalk_notifier)
+                logger.info("✓ 钉钉通知已启用")
+            except Exception as e:
+                logger.warning(f"钉钉通知初始化失败: {str(e)}")
     
     def monitor_stocks(self, interval: int = None):
         """
@@ -208,8 +267,16 @@ class StockMonitor:
         print(alert_msg)
         logger.warning(alert_msg)
         
-        # TODO: 这里可以添加其他通知方式
-        # 例如：邮件、微信、钉钉等
+        # 使用通知管理器发送通知
+        if self.config.notification.enabled:
+            signal_info = {
+                'type': f"{action}_{signal_type}",
+                'time': point['time'],
+                'price': point['price'],
+                'reason': point.get('reason', '未说明')
+            }
+            
+            self.notification_manager.send_signal_alert(stock, signal_info, period_name)
     
     def scan_once(self) -> List[Dict]:
         """

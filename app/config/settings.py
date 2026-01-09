@@ -82,6 +82,33 @@ class MySQLConfig:
 
 
 @dataclass
+class NotificationConfig:
+    """通知配置"""
+    # 是否启用通知
+    enabled: bool = os.getenv('NOTIFICATION_ENABLED', 'True').lower() == 'true'
+    
+    # 邮件通知配置
+    email_enabled: bool = os.getenv('EMAIL_ENABLED', 'False').lower() == 'true'
+    smtp_server: str = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port: int = int(os.getenv('SMTP_PORT', '587'))
+    email_username: str = os.getenv('EMAIL_USERNAME', '')
+    email_password: str = os.getenv('EMAIL_PASSWORD', '')
+    email_from: str = os.getenv('EMAIL_FROM', '')
+    email_to: List[str] = field(default_factory=lambda: 
+        os.getenv('EMAIL_TO', '').split(',') if os.getenv('EMAIL_TO') else []
+    )
+    
+    # 企业微信通知配置
+    wechat_enabled: bool = os.getenv('WECHAT_ENABLED', 'False').lower() == 'true'
+    wechat_webhook: str = os.getenv('WECHAT_WEBHOOK', '')
+    
+    # 钉钉通知配置
+    dingtalk_enabled: bool = os.getenv('DINGTALK_ENABLED', 'False').lower() == 'true'
+    dingtalk_webhook: str = os.getenv('DINGTALK_WEBHOOK', '')
+    dingtalk_secret: str = os.getenv('DINGTALK_SECRET', '')
+
+
+@dataclass
 class StockListConfig:
     """股票列表配置"""
     # 默认监控的股票列表
@@ -105,6 +132,7 @@ class AppConfig:
     fractal: FractalConfig = field(default_factory=FractalConfig)
     data: DataConfig = field(default_factory=DataConfig)
     mysql: MySQLConfig = field(default_factory=MySQLConfig)
+    notification: NotificationConfig = field(default_factory=NotificationConfig)
     stock_list: StockListConfig = field(default_factory=StockListConfig)
     
     # 调试模式
