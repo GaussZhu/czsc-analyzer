@@ -29,21 +29,29 @@ def test_connection():
     unix_socket = config.mysql.unix_socket
     if unix_socket:
         print(f"  Unix Socket: {unix_socket}")
+        # 使用 Unix Socket 连接
+        connector = MySQLConnector(
+            user=config.mysql.user,
+            password=config.mysql.password,
+            database=config.mysql.database,
+            unix_socket=unix_socket
+        )
     else:
         print(f"  Host: {config.mysql.host}:{config.mysql.port}")
+        # 使用 TCP 连接
+        connector = MySQLConnector(
+            host=config.mysql.host,
+            port=config.mysql.port,
+            user=config.mysql.user,
+            password=config.mysql.password,
+            database=config.mysql.database
+        )
+    
     print(f"  Database: {config.mysql.database}")
     print(f"  User: {config.mysql.user}")
     
     # 创建连接
     print(f"\n正在连接...")
-    connector = MySQLConnector(
-        host=config.mysql.host,
-        port=config.mysql.port,
-        user=config.mysql.user,
-        password=config.mysql.password,
-        database=config.mysql.database,
-        unix_socket=unix_socket
-    )
     
     if not connector.connect():
         print("✗ 连接失败")
