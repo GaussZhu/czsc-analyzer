@@ -150,19 +150,21 @@ class StockDAO:
         params = [code]
         
         if start_datetime:
-            query += " AND datetime >= %s"
+            query += " AND date >= %s"
             params.append(start_datetime)
         
         if end_datetime:
-            query += " AND datetime <= %s"
+            query += " AND date <= %s"
             params.append(end_datetime)
         
         # LIMIT不能使用参数化查询，必须直接插入数值
-        query += f" ORDER BY datetime DESC LIMIT {limit}"
+        query += f" ORDER BY date DESC LIMIT {limit}"
         
         df = self.db.query_to_dataframe(query, tuple(params))
         
         if df is not None and not df.empty:
+            # 重命名 date 为 datetime，以便与其他代码兼容
+            df = df.rename(columns={'date': 'datetime'})
             df = df.sort_values('datetime', ascending=True).reset_index(drop=True)
             logger.info(f"获取30分钟数据: {code}, {len(df)}条")
         
