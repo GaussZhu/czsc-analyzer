@@ -349,7 +349,7 @@ async def get_ranking_data(rank_type: str):
             'fltt': 2,
             'invt': 2,
             'fid': fid,
-            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
+            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',  # 全市场（沪深A股+北交所新股）
             'fields': 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152'
         }
         
@@ -826,11 +826,24 @@ async def get_advanced_overview():
 async def get_market_sentiment():
     """
     获取市场情绪数据（涨跌家数、涨跌停统计）
-    返回真实的市场统计数据
-    分3次获取，覆盖约300只股票进行统计
+    使用可靠的数据源，添加重试机制
     """
     try:
         import time
+        from requests.adapters import HTTPAdapter
+        from requests.packages.urllib3.util.retry import Retry
+        
+        # 创建带重试的session
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        
         url = "http://push2.eastmoney.com/api/qt/clist/get"
         
         # 统计变量
@@ -841,35 +854,44 @@ async def get_market_sentiment():
         limit_down_count = 0
         total_stocks = 0
         
-        # 只获取前3页（每页100条，共300只股票作为样本）
-        max_pages = 3
-        page_size = 100
+        # 获取多页数据进行统计（每页100条）
+        pages_to_fetch = [1, 2, 3, 11, 21, 31]  # 分散采样，避免集中请求
         
-        for page in range(1, max_pages + 1):
+        for page in pages_to_fetch:
             params = {
                 'pn': page,
-                'pz': page_size,
+                'pz': 100,
                 'po': 1,
                 'np': 1,
                 'fltt': 2,
                 'invt': 2,
                 'fid': 'f3',
                 'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
-                'fields': 'f12,f3'  # 只要代码和涨跌幅
+                'fields': 'f12,f3'
             }
             
             try:
-                response = requests.get(url, params=params, timeout=5)
+                # 添加浏览器headers
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Referer': 'http://quote.eastmoney.com/',
+                    'Accept': 'application/json'
+                }
+                
+                response = session.get(url, params=params, headers=headers, timeout=8)
                 data = response.json()
                 
                 if not data or not data.get('data') or not data['data'].get('diff'):
-                    break
+                    logger.warning(f"第{page}页无数据")
+                    continue
                 
                 stocks = data['data'].get('diff', [])
                 if not stocks:
-                    break
+                    continue
                 
-                total_stocks = data['data'].get('total', total_stocks)
+                # 记录总数
+                if total_stocks == 0:
+                    total_stocks = data['data'].get('total', 0)
                 
                 # 统计本页数据
                 for stock in stocks:
@@ -888,29 +910,28 @@ async def get_market_sentiment():
                     else:
                         flat_count += 1
                 
-                # 添加短暂延迟避免被限流
-                if page < max_pages:
-                    time.sleep(0.2)
+                # 添加延迟避免限流
+                time.sleep(0.3)
                 
             except Exception as e:
-                logger.error(f"获取第{page}页数据失败: {e}")
-                break  # 发生错误就停止
+                logger.error(f"获取第{page}页失败: {e}")
+                continue
         
         # 计算统计结果
         counted_total = up_count + down_count + flat_count
         if counted_total > 0:
-            # 根据样本推算全市场（按比例）
+            # 按比例推算全市场
             ratio = total_stocks / counted_total if counted_total > 0 else 1
             return {
                 'success': True,
                 'data': {
                     'total': total_stocks,
-                    'counted': counted_total,  # 样本数量
-                    'up_count': int(up_count * ratio),  # 推算的上涨家数
-                    'down_count': int(down_count * ratio),  # 推算的下跌家数
-                    'flat_count': int(flat_count * ratio),  # 推算的平盘家数
-                    'limit_up_count': limit_up_count,  # 涨停数（不推算）
-                    'limit_down_count': limit_down_count,  # 跌停数（不推算）
+                    'counted': counted_total,
+                    'up_count': int(up_count * ratio),
+                    'down_count': int(down_count * ratio),
+                    'flat_count': int(flat_count * ratio),
+                    'limit_up_count': limit_up_count,
+                    'limit_down_count': limit_down_count,
                     'up_ratio': round(up_count / counted_total * 100, 1),
                     'down_ratio': round(down_count / counted_total * 100, 1)
                 }
