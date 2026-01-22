@@ -314,78 +314,108 @@ async def proxy_tencent_api(symbols: str):
 async def get_ranking_data(rank_type: str):
     """
     获取排行榜数据（涨幅/跌幅/成交额/换手率）
+    从MySQL数据库统计，避免外部API限流
     
     Args:
         rank_type: 榜单类型 gainers/losers/volume/turnover
     """
     try:
-        url = "http://push2.eastmoney.com/api/qt/clist/get"
+        import os
+        import pymysql
+        from dotenv import load_dotenv
         
-        # 根据榜单类型设置参数
+        # 加载环境变量
+        load_dotenv()
+        
+        # 获取数据库配置
+        mysql_host = os.getenv('MYSQL_HOST', '/var/run/mysqld/mysqld.sock')
+        mysql_user = os.getenv('MYSQL_USER', 'root')
+        mysql_password = os.getenv('MYSQL_PASSWORD', '')
+        mysql_database = os.getenv('MYSQL_DATABASE', 'stock_kline')
+        
+        # 根据榜单类型设置SQL排序字段
         if rank_type == 'gainers':
-            # 涨幅榜（正序）
-            fid = 'f3'  # 按涨跌幅排序
-            po = 1      # 正序
+            order_by = 'change_pct DESC'  # 涨幅榜（降序）
         elif rank_type == 'losers':
-            # 跌幅榜（倒序）
-            fid = 'f3'
-            po = 0      # 倒序
+            order_by = 'change_pct ASC'   # 跌幅榜（升序）
         elif rank_type == 'volume':
-            # 成交额榜
-            fid = 'f6'  # 按成交额排序
-            po = 1
+            order_by = 'volume_yi DESC'   # 成交额榜（降序）
         elif rank_type == 'turnover':
-            # 换手率榜
-            fid = 'f8'  # 按换手率排序
-            po = 1
+            order_by = 'turnover DESC'    # 换手率榜（降序）
         else:
             raise HTTPException(status_code=400, detail="无效的榜单类型")
         
-        params = {
-            'pn': 1,           # 页码
-            'pz': 50,          # 每页数量（Top50）
-            'po': po,          # 排序
-            'np': 1,
-            'fltt': 2,
-            'invt': 2,
-            'fid': fid,
-            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',  # 全市场（沪深A股+北交所新股）
-            'fields': 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152'
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="获取排行榜数据失败")
-        
-        data = response.json()
-        
-        # 解析数据
-        if data and 'data' in data and 'diff' in data['data']:
-            stocks = data['data']['diff']
-            
-            # 格式化数据
-            result = []
-            for stock in stocks:
-                result.append({
-                    'code': stock.get('f12', ''),
-                    'name': stock.get('f14', ''),
-                    'price': stock.get('f2', 0),
-                    'change': stock.get('f3', 0),
-                    'volume': round(stock.get('f6', 0) / 100000000, 2),  # 转换为亿
-                    'turnover': stock.get('f8', 0)
-                })
-            
-            return {
-                'success': True,
-                'data': result,
-                'count': len(result)
-            }
+        # 连接数据库
+        if mysql_host.startswith('/'):
+            connection = pymysql.connect(
+                unix_socket=mysql_host,
+                user=mysql_user,
+                password=mysql_password,
+                database=mysql_database,
+                charset='utf8mb4'
+            )
         else:
-            raise HTTPException(status_code=500, detail="数据格式异常")
+            connection = pymysql.connect(
+                host=mysql_host,
+                port=int(os.getenv('MYSQL_PORT', 3306)),
+                user=mysql_user,
+                password=mysql_password,
+                database=mysql_database,
+                charset='utf8mb4'
+            )
         
+        try:
+            with connection.cursor() as cursor:
+                # SQL查询：统计最新一天的排行榜数据
+                sql = f"""
+                SELECT 
+                  t1.code,
+                  t1.name,
+                  t1.close as price,
+                  ROUND((t1.close - t2.close) / t2.close * 100, 2) as change_pct,
+                  ROUND(t1.volume / 100000000, 2) as volume_yi,
+                  ROUND(LEAST(t1.volume / (t1.amount / t1.close) * 100, 100), 2) as turnover
+                FROM daily_kline t1
+                INNER JOIN daily_kline t2 ON t1.code = t2.code
+                WHERE t1.date = (SELECT MAX(date) FROM daily_kline)
+                  AND t2.date = (SELECT MAX(date) FROM daily_kline WHERE date < (SELECT MAX(date) FROM daily_kline))
+                  AND t2.close > 0
+                  AND t1.volume > 0
+                  AND t1.amount > 0
+                ORDER BY {order_by}
+                LIMIT 50;
+                """
+                
+                cursor.execute(sql)
+                results = cursor.fetchall()
+                
+                # 格式化数据
+                result = []
+                for row in results:
+                    result.append({
+                        'code': row[0],
+                        'name': row[1],
+                        'price': float(row[2]) if row[2] else 0,
+                        'change': float(row[3]) if row[3] else 0,
+                        'volume': float(row[4]) if row[4] else 0,
+                        'turnover': float(row[5]) if row[5] else 0
+                    })
+                
+                return {
+                    'success': True,
+                    'data': result,
+                    'count': len(result),
+                    'data_source': 'MySQL'
+                }
+        
+        finally:
+            connection.close()
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"从MySQL获取排行榜数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取排行榜数据失败: {str(e)}")
 
 # ===== 高级功能页面 =====
 
