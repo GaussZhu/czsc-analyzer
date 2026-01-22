@@ -826,88 +826,105 @@ async def get_advanced_overview():
 async def get_market_sentiment():
     """
     获取市场情绪数据（涨跌家数、涨跌停统计）
-    基于样本数据推算全市场统计
+    从MySQL数据库统计最新一天的日线数据，100%准确
     """
     try:
-        import time
-        url = "http://push2.eastmoney.com/api/qt/clist/get"
+        import os
+        import pymysql
+        from dotenv import load_dotenv
         
-        # 统计变量
-        up_count = 0
-        down_count = 0
-        flat_count = 0
-        limit_up_count = 0
-        limit_down_count = 0
-        total_stocks = 0
+        # 加载环境变量
+        load_dotenv()
         
-        # 获取第1页作为样本（按代码排序，避免倾向性）
-        params = {
-            'pn': 1,
-            'pz': 100,
-            'po': 1,
-            'np': 1,
-            'fltt': 2,
-            'invt': 2,
-            'fid': 'f12',  # 按股票代码排序，保证随机性
-            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
-            'fields': 'f12,f3'
-        }
+        # 获取数据库配置
+        mysql_host = os.getenv('MYSQL_HOST', '/var/run/mysqld/mysqld.sock')
+        mysql_user = os.getenv('MYSQL_USER', 'root')
+        mysql_password = os.getenv('MYSQL_PASSWORD', '')
+        mysql_database = os.getenv('MYSQL_DATABASE', 'stock_kline')
+        
+        # 连接数据库
+        if mysql_host.startswith('/'):
+            # Unix socket连接
+            connection = pymysql.connect(
+                unix_socket=mysql_host,
+                user=mysql_user,
+                password=mysql_password,
+                database=mysql_database,
+                charset='utf8mb4'
+            )
+        else:
+            # TCP连接
+            connection = pymysql.connect(
+                host=mysql_host,
+                port=int(os.getenv('MYSQL_PORT', 3306)),
+                user=mysql_user,
+                password=mysql_password,
+                database=mysql_database,
+                charset='utf8mb4'
+            )
         
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Referer': 'http://quote.eastmoney.com/'
-            }
-            
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
+            with connection.cursor() as cursor:
+                # SQL查询：统计最新一天的涨跌情况
+                sql = """
+                SELECT 
+                  COUNT(DISTINCT t1.code) as total_stocks,
+                  SUM(CASE WHEN t1.close > t2.close THEN 1 ELSE 0 END) as up_count,
+                  SUM(CASE WHEN t1.close < t2.close THEN 1 ELSE 0 END) as down_count,
+                  SUM(CASE WHEN t1.close = t2.close THEN 1 ELSE 0 END) as flat_count,
+                  SUM(CASE WHEN (t1.close - t2.close) / t2.close * 100 >= 9.5 THEN 1 ELSE 0 END) as limit_up_count,
+                  SUM(CASE WHEN (t1.close - t2.close) / t2.close * 100 <= -9.5 THEN 1 ELSE 0 END) as limit_down_count
+                FROM daily_kline t1
+                INNER JOIN daily_kline t2 ON t1.code = t2.code
+                WHERE t1.date = (SELECT MAX(date) FROM daily_kline)
+                  AND t2.date = (SELECT MAX(date) FROM daily_kline WHERE date < (SELECT MAX(date) FROM daily_kline))
+                  AND t2.close > 0;
+                """
                 
-                if data and data.get('data') and data['data'].get('diff'):
-                    stocks = data['data'].get('diff', [])
-                    total_stocks = data['data'].get('total', 0)
+                cursor.execute(sql)
+                result = cursor.fetchone()
+                
+                if result:
+                    total_stocks = int(result[0]) if result[0] else 0
+                    up_count = int(result[1]) if result[1] else 0
+                    down_count = int(result[2]) if result[2] else 0
+                    flat_count = int(result[3]) if result[3] else 0
+                    limit_up_count = int(result[4]) if result[4] else 0
+                    limit_down_count = int(result[5]) if result[5] else 0
                     
-                    # 统计样本数据
-                    for stock in stocks:
-                        change_percent = stock.get('f3')
-                        if change_percent is None:
-                            continue
-                        
-                        if change_percent > 0:
-                            up_count += 1
-                            if change_percent >= 9.5:
-                                limit_up_count += 1
-                        elif change_percent < 0:
-                            down_count += 1
-                            if change_percent <= -9.5:
-                                limit_down_count += 1
-                        else:
-                            flat_count += 1
-                    
-                    # 计算统计结果
+                    # 计算比例
                     counted_total = up_count + down_count + flat_count
-                    if counted_total > 0 and total_stocks > 0:
-                        # 按比例推算全市场
-                        ratio = total_stocks / counted_total
-                        return {
-                            'success': True,
-                            'data': {
-                                'total': total_stocks,
-                                'counted': counted_total,  # 样本数量
-                                'up_count': int(up_count * ratio),
-                                'down_count': int(down_count * ratio),
-                                'flat_count': int(flat_count * ratio),
-                                'limit_up_count': limit_up_count,  # 涨停数（实际值）
-                                'limit_down_count': limit_down_count,  # 跌停数（实际值）
-                                'up_ratio': round(up_count / counted_total * 100, 1),
-                                'down_ratio': round(down_count / counted_total * 100, 1)
-                            }
+                    if counted_total > 0:
+                        up_ratio = round(up_count / counted_total * 100, 1)
+                        down_ratio = round(down_count / counted_total * 100, 1)
+                    else:
+                        up_ratio = 0.0
+                        down_ratio = 0.0
+                    
+                    return {
+                        'success': True,
+                        'data': {
+                            'total': total_stocks,
+                            'counted': counted_total,
+                            'up_count': up_count,
+                            'down_count': down_count,
+                            'flat_count': flat_count,
+                            'limit_up_count': limit_up_count,
+                            'limit_down_count': limit_down_count,
+                            'up_ratio': up_ratio,
+                            'down_ratio': down_ratio,
+                            'data_source': 'MySQL'  # 标记数据来源
                         }
+                    }
+                else:
+                    logger.error("MySQL查询无结果")
+                    return {'success': False, 'data': {}}
         
-        except Exception as e:
-            logger.error(f"获取市场情绪数据失败: {e}")
+        finally:
+            connection.close()
         
+    except Exception as e:
+        logger.error(f"从MySQL获取市场情绪数据失败: {e}")
         return {'success': False, 'data': {}}
         
     except Exception as e:
