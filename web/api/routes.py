@@ -826,24 +826,10 @@ async def get_advanced_overview():
 async def get_market_sentiment():
     """
     获取市场情绪数据（涨跌家数、涨跌停统计）
-    使用可靠的数据源，添加重试机制
+    基于样本数据推算全市场统计
     """
     try:
         import time
-        from requests.adapters import HTTPAdapter
-        from requests.packages.urllib3.util.retry import Retry
-        
-        # 创建带重试的session
-        session = requests.Session()
-        retry = Retry(
-            total=3,
-            backoff_factor=0.3,
-            status_forcelist=[500, 502, 503, 504]
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        
         url = "http://push2.eastmoney.com/api/qt/clist/get"
         
         # 统计变量
@@ -854,88 +840,73 @@ async def get_market_sentiment():
         limit_down_count = 0
         total_stocks = 0
         
-        # 获取多页数据进行统计（每页100条）
-        pages_to_fetch = [1, 2, 3, 11, 21, 31]  # 分散采样，避免集中请求
+        # 获取第1页作为样本（按代码排序，避免倾向性）
+        params = {
+            'pn': 1,
+            'pz': 100,
+            'po': 1,
+            'np': 1,
+            'fltt': 2,
+            'invt': 2,
+            'fid': 'f12',  # 按股票代码排序，保证随机性
+            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
+            'fields': 'f12,f3'
+        }
         
-        for page in pages_to_fetch:
-            params = {
-                'pn': page,
-                'pz': 100,
-                'po': 1,
-                'np': 1,
-                'fltt': 2,
-                'invt': 2,
-                'fid': 'f3',
-                'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
-                'fields': 'f12,f3'
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Referer': 'http://quote.eastmoney.com/'
             }
             
-            try:
-                # 添加浏览器headers
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Referer': 'http://quote.eastmoney.com/',
-                    'Accept': 'application/json'
-                }
-                
-                response = session.get(url, params=params, headers=headers, timeout=8)
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
                 data = response.json()
                 
-                if not data or not data.get('data') or not data['data'].get('diff'):
-                    logger.warning(f"第{page}页无数据")
-                    continue
-                
-                stocks = data['data'].get('diff', [])
-                if not stocks:
-                    continue
-                
-                # 记录总数
-                if total_stocks == 0:
+                if data and data.get('data') and data['data'].get('diff'):
+                    stocks = data['data'].get('diff', [])
                     total_stocks = data['data'].get('total', 0)
-                
-                # 统计本页数据
-                for stock in stocks:
-                    change_percent = stock.get('f3')
-                    if change_percent is None:
-                        continue
                     
-                    if change_percent > 0:
-                        up_count += 1
-                        if change_percent >= 9.5:
-                            limit_up_count += 1
-                    elif change_percent < 0:
-                        down_count += 1
-                        if change_percent <= -9.5:
-                            limit_down_count += 1
-                    else:
-                        flat_count += 1
-                
-                # 添加延迟避免限流
-                time.sleep(0.3)
-                
-            except Exception as e:
-                logger.error(f"获取第{page}页失败: {e}")
-                continue
+                    # 统计样本数据
+                    for stock in stocks:
+                        change_percent = stock.get('f3')
+                        if change_percent is None:
+                            continue
+                        
+                        if change_percent > 0:
+                            up_count += 1
+                            if change_percent >= 9.5:
+                                limit_up_count += 1
+                        elif change_percent < 0:
+                            down_count += 1
+                            if change_percent <= -9.5:
+                                limit_down_count += 1
+                        else:
+                            flat_count += 1
+                    
+                    # 计算统计结果
+                    counted_total = up_count + down_count + flat_count
+                    if counted_total > 0 and total_stocks > 0:
+                        # 按比例推算全市场
+                        ratio = total_stocks / counted_total
+                        return {
+                            'success': True,
+                            'data': {
+                                'total': total_stocks,
+                                'counted': counted_total,  # 样本数量
+                                'up_count': int(up_count * ratio),
+                                'down_count': int(down_count * ratio),
+                                'flat_count': int(flat_count * ratio),
+                                'limit_up_count': limit_up_count,  # 涨停数（实际值）
+                                'limit_down_count': limit_down_count,  # 跌停数（实际值）
+                                'up_ratio': round(up_count / counted_total * 100, 1),
+                                'down_ratio': round(down_count / counted_total * 100, 1)
+                            }
+                        }
         
-        # 计算统计结果
-        counted_total = up_count + down_count + flat_count
-        if counted_total > 0:
-            # 按比例推算全市场
-            ratio = total_stocks / counted_total if counted_total > 0 else 1
-            return {
-                'success': True,
-                'data': {
-                    'total': total_stocks,
-                    'counted': counted_total,
-                    'up_count': int(up_count * ratio),
-                    'down_count': int(down_count * ratio),
-                    'flat_count': int(flat_count * ratio),
-                    'limit_up_count': limit_up_count,
-                    'limit_down_count': limit_down_count,
-                    'up_ratio': round(up_count / counted_total * 100, 1),
-                    'down_ratio': round(down_count / counted_total * 100, 1)
-                }
-            }
+        except Exception as e:
+            logger.error(f"获取市场情绪数据失败: {e}")
         
         return {'success': False, 'data': {}}
         
