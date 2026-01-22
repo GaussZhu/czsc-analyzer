@@ -564,23 +564,35 @@
     // 获取实时行情
     async function fetchMarketData() {
       try {
-        // 构建查询参数
+        // 1. 获取大盘指数数据
         const symbols = INDICES.map(idx => `${idx.market}${idx.code}`).join(',');
-        const url = `http://qt.gtimg.cn/q=${symbols}`;
+        const indicesResponse = await fetch('/api/proxy/tencent?symbols=' + symbols);
         
-        // 使用代理请求（避免跨域）
-        const response = await fetch('/api/proxy/tencent?symbols=' + symbols);
-        
-        if (!response.ok) {
-          throw new Error('获取数据失败');
+        if (!indicesResponse.ok) {
+          throw new Error('获取指数数据失败');
         }
         
-        const text = await response.text();
-        const data = parseMarketData(text);
+        const indicesText = await indicesResponse.text();
+        const indices = parseIndicesData(indicesText);
+        
+        // 2. 获取市场情绪数据（真实API）
+        const sentimentResponse = await fetch('/api/market/sentiment');
+        const sentimentData = await sentimentResponse.json();
         
         // 更新显示
-        updateIndices(data.indices);
-        updateSentiment(data.sentiment);
+        updateIndices(indices);
+        
+        if (sentimentData.success) {
+          const sentiment = {
+            upCount: sentimentData.data.up_count,
+            downCount: sentimentData.data.down_count,
+            flatCount: sentimentData.data.flat_count,
+            limitUpCount: sentimentData.data.limit_up_count,
+            limitDownCount: sentimentData.data.limit_down_count
+          };
+          updateSentiment(sentiment);
+        }
+        
         updateLastUpdate();
         
       } catch (error) {
@@ -589,8 +601,8 @@
       }
     }
     
-    // 解析腾讯财经API返回的数据
-    function parseMarketData(text) {
+    // 解析腾讯财经API返回的指数数据
+    function parseIndicesData(text) {
       const indices = [];
       const lines = text.split('\n');
       
@@ -622,16 +634,7 @@
         }
       });
       
-      // 计算市场情绪（这里是模拟数据，实际需要从API获取）
-      const sentiment = {
-        upCount: Math.floor(Math.random() * 1000) + 2000,
-        downCount: Math.floor(Math.random() * 1000) + 1500,
-        flatCount: Math.floor(Math.random() * 300) + 400,
-        limitUpCount: Math.floor(Math.random() * 50) + 30,
-        limitDownCount: Math.floor(Math.random() * 20) + 10
-      };
-      
-      return { indices, sentiment };
+      return indices;
     }
     
     // 更新大盘指数显示

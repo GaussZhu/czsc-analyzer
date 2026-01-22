@@ -822,3 +822,73 @@ async def get_advanced_overview():
         logger.error(f"获取概览统计失败: {e}")
         return {'success': False, 'data': {}}
 
+@router.get("/api/market/sentiment")
+async def get_market_sentiment():
+    """
+    获取市场情绪数据（涨跌家数、涨跌停统计）
+    返回真实的市场统计数据
+    """
+    try:
+        url = "http://push2.eastmoney.com/api/qt/clist/get"
+        
+        # 获取全部A股数据（分页获取足够多的数据来统计）
+        params = {
+            'pn': 1,
+            'pz': 5000,  # 获取5000只股票的数据
+            'po': 1,
+            'np': 1,
+            'fltt': 2,
+            'invt': 2,
+            'fid': 'f3',
+            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
+            'fields': 'f12,f14,f2,f3'  # f3是涨跌幅
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data and data.get('data') and data['data'].get('diff'):
+            stocks = data['data']['diff']
+            total = data['data']['total']
+            
+            # 统计涨跌家数
+            up_count = 0
+            down_count = 0
+            flat_count = 0
+            limit_up_count = 0  # 涨停（涨幅>=9.5%）
+            limit_down_count = 0  # 跌停（跌幅<=-9.5%）
+            
+            for stock in stocks:
+                change_percent = stock.get('f3', 0)
+                
+                if change_percent > 0:
+                    up_count += 1
+                    if change_percent >= 9.5:
+                        limit_up_count += 1
+                elif change_percent < 0:
+                    down_count += 1
+                    if change_percent <= -9.5:
+                        limit_down_count += 1
+                else:
+                    flat_count += 1
+            
+            return {
+                'success': True,
+                'data': {
+                    'total': total,
+                    'up_count': up_count,
+                    'down_count': down_count,
+                    'flat_count': flat_count,
+                    'limit_up_count': limit_up_count,
+                    'limit_down_count': limit_down_count,
+                    'up_ratio': round(up_count / total * 100, 1) if total > 0 else 0,
+                    'down_ratio': round(down_count / total * 100, 1) if total > 0 else 0
+                }
+            }
+        else:
+            return {'success': False, 'data': {}}
+        
+    except Exception as e:
+        logger.error(f"获取市场情绪数据失败: {e}")
+        return {'success': False, 'data': {}}
+
