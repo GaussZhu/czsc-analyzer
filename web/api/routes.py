@@ -827,66 +827,96 @@ async def get_market_sentiment():
     """
     获取市场情绪数据（涨跌家数、涨跌停统计）
     返回真实的市场统计数据
+    分3次获取，覆盖约300只股票进行统计
     """
     try:
+        import time
         url = "http://push2.eastmoney.com/api/qt/clist/get"
         
-        # 获取全部A股数据（分页获取足够多的数据来统计）
-        params = {
-            'pn': 1,
-            'pz': 5000,  # 获取5000只股票的数据
-            'po': 1,
-            'np': 1,
-            'fltt': 2,
-            'invt': 2,
-            'fid': 'f3',
-            'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
-            'fields': 'f12,f14,f2,f3'  # f3是涨跌幅
-        }
+        # 统计变量
+        up_count = 0
+        down_count = 0
+        flat_count = 0
+        limit_up_count = 0
+        limit_down_count = 0
+        total_stocks = 0
         
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+        # 只获取前3页（每页100条，共300只股票作为样本）
+        max_pages = 3
+        page_size = 100
         
-        if data and data.get('data') and data['data'].get('diff'):
-            stocks = data['data']['diff']
-            total = data['data']['total']
+        for page in range(1, max_pages + 1):
+            params = {
+                'pn': page,
+                'pz': page_size,
+                'po': 1,
+                'np': 1,
+                'fltt': 2,
+                'invt': 2,
+                'fid': 'f3',
+                'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23',  # 沪深A股
+                'fields': 'f12,f3'  # 只要代码和涨跌幅
+            }
             
-            # 统计涨跌家数
-            up_count = 0
-            down_count = 0
-            flat_count = 0
-            limit_up_count = 0  # 涨停（涨幅>=9.5%）
-            limit_down_count = 0  # 跌停（跌幅<=-9.5%）
-            
-            for stock in stocks:
-                change_percent = stock.get('f3', 0)
+            try:
+                response = requests.get(url, params=params, timeout=5)
+                data = response.json()
                 
-                if change_percent > 0:
-                    up_count += 1
-                    if change_percent >= 9.5:
-                        limit_up_count += 1
-                elif change_percent < 0:
-                    down_count += 1
-                    if change_percent <= -9.5:
-                        limit_down_count += 1
-                else:
-                    flat_count += 1
-            
+                if not data or not data.get('data') or not data['data'].get('diff'):
+                    break
+                
+                stocks = data['data'].get('diff', [])
+                if not stocks:
+                    break
+                
+                total_stocks = data['data'].get('total', total_stocks)
+                
+                # 统计本页数据
+                for stock in stocks:
+                    change_percent = stock.get('f3')
+                    if change_percent is None:
+                        continue
+                    
+                    if change_percent > 0:
+                        up_count += 1
+                        if change_percent >= 9.5:
+                            limit_up_count += 1
+                    elif change_percent < 0:
+                        down_count += 1
+                        if change_percent <= -9.5:
+                            limit_down_count += 1
+                    else:
+                        flat_count += 1
+                
+                # 添加短暂延迟避免被限流
+                if page < max_pages:
+                    time.sleep(0.2)
+                
+            except Exception as e:
+                logger.error(f"获取第{page}页数据失败: {e}")
+                break  # 发生错误就停止
+        
+        # 计算统计结果
+        counted_total = up_count + down_count + flat_count
+        if counted_total > 0:
+            # 根据样本推算全市场（按比例）
+            ratio = total_stocks / counted_total if counted_total > 0 else 1
             return {
                 'success': True,
                 'data': {
-                    'total': total,
-                    'up_count': up_count,
-                    'down_count': down_count,
-                    'flat_count': flat_count,
-                    'limit_up_count': limit_up_count,
-                    'limit_down_count': limit_down_count,
-                    'up_ratio': round(up_count / total * 100, 1) if total > 0 else 0,
-                    'down_ratio': round(down_count / total * 100, 1) if total > 0 else 0
+                    'total': total_stocks,
+                    'counted': counted_total,  # 样本数量
+                    'up_count': int(up_count * ratio),  # 推算的上涨家数
+                    'down_count': int(down_count * ratio),  # 推算的下跌家数
+                    'flat_count': int(flat_count * ratio),  # 推算的平盘家数
+                    'limit_up_count': limit_up_count,  # 涨停数（不推算）
+                    'limit_down_count': limit_down_count,  # 跌停数（不推算）
+                    'up_ratio': round(up_count / counted_total * 100, 1),
+                    'down_ratio': round(down_count / counted_total * 100, 1)
                 }
             }
-        else:
-            return {'success': False, 'data': {}}
+        
+        return {'success': False, 'data': {}}
         
     except Exception as e:
         logger.error(f"获取市场情绪数据失败: {e}")
