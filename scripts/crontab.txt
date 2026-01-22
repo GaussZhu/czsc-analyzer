@@ -1,0 +1,32 @@
+# ====== CZSC Stock Monitor 定时任务配置 ======
+# 请使用 install_crontab.sh 脚本安装此配置
+
+# 环境变量
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PYTHONUNBUFFERED=1
+WEBAPP_ROOT=/root/stock_monitor_project/webapp
+
+# ====== K线数据更新 ======
+# 每个交易日 15:25 更新K线数据（收盘后5分钟）
+25 15 * * 1-5 cd $WEBAPP_ROOT && venv/bin/python3 scripts/fetch_daily_kline.py >> logs/fetch_kline_$(date +\%Y\%m\%d).log 2>&1
+
+# ====== 推荐信号生成 ======
+# 每天 16:50 跑推荐分析（给K线数据更新留足时间）
+50 16 * * * cd $WEBAPP_ROOT && venv/bin/python3 scripts/generate_recommendations.py >> logs/recommend_$(date +\%Y\%m\%d).log 2>&1
+
+# ====== 30分钟追踪 ======
+# 每天 18:20 跑30分钟追踪分析（在推荐之后）
+20 18 * * * cd $WEBAPP_ROOT && venv/bin/python3 scripts/generate_tracking.py >> logs/tracking_$(date +\%Y\%m\%d).log 2>&1
+
+# ====== 股票列表更新 ======
+# 每周一 凌晨2:00 更新股票列表
+0 2 * * 1 cd $WEBAPP_ROOT && venv/bin/python3 scripts/update_stock_list.py >> logs/update_list_$(date +\%Y\%m\%d).log 2>&1
+
+# ====== 日志清理 ======
+# 每天凌晨3:00 清理30天前的日志
+0 3 * * * find $WEBAPP_ROOT/logs -name "*.log" -type f -mtime +30 -delete
+
+# ====== Web服务监控 ======
+# 每5分钟检查一次Web服务是否运行，如果停止则自动重启
+*/5 * * * * pgrep -f "uvicorn web.main:app" > /dev/null || (cd $WEBAPP_ROOT && venv/bin/uvicorn web.main:app --host 0.0.0.0 --port 8000 >> logs/web_service.log 2>&1 &)

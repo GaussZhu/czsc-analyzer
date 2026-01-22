@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>🎯 高级功能 - CZSC分析工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "微软雅黑", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+      color: #333;
+      padding-bottom: 40px;
+    }
+    
+    /* 导航栏 */
+    .nav-container { width: 100%; background: #b22222; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .nav-wrapper { max-width: 1400px; margin: 0 auto; display: flex; justify-content: center; padding: 12px 20px; }
+    .nav-wrapper a { color: #fff; text-decoration: none; margin: 0 15px; font-size: 15px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav-wrapper a:hover, .nav-wrapper a.active { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #b22222 0%, #8b0000 100%);
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    header h1 { margin: 0; font-size: 26px; font-weight: 600; }
+    header .subtitle { font-size: 14px; margin-top: 8px; opacity: 0.9; }
+    header .last-update { font-size: 12px; margin-top: 4px; opacity: 0.75; }
+    
+    /* 容器 */
+    .container { max-width: 1400px; margin: 24px auto; padding: 0 20px; }
+    
+    /* Section 标题 */
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #b22222;
+      margin: 32px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #b22222;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .section-title .subtitle {
+      font-size: 13px;
+      color: #666;
+      font-weight: 400;
+    }
+    
+    /* 标签切换 */
+    .tab-container {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+      padding: 8px 20px;
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #666;
+      transition: all 0.3s;
+    }
+    
+    .tab-btn:hover {
+      border-color: #b22222;
+      color: #b22222;
+    }
+    
+    .tab-btn.active {
+      background: #b22222;
+      border-color: #b22222;
+      color: white;
+    }
+    
+    /* 卡片网格 */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    .card .title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+    
+    .card .value {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 8px 0;
+    }
+    
+    .card .label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    
+    .card .up { color: #dc143c; }
+    .card .down { color: #008000; }
+    
+    /* 表格样式 */
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+    
+    thead {
+      background: #f8f8f8;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 2px solid #ddd;
+    }
+    
+    td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    tbody tr {
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    
+    tbody tr:hover {
+      background: #f8f8f8;
+    }
+    
+    tbody tr.top3 {
+      background: #fff5f5;
+    }
+    
+    .stock-code {
+      color: #b22222;
+      font-weight: 600;
+    }
+    
+    .positive { color: #dc143c; font-weight: 600; }
+    .negative { color: #008000; font-weight: 600; }
+    
+    /* 加载动画 */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+      font-size: 14px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading::before {
+      content: "⏳";
+      display: inline-block;
+      animation: spin 2s linear infinite;
+      margin-right: 8px;
+    }
+    
+    /* 图表容器 */
+    .chart-container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+      min-height: 400px;
+    }
+    
+    .chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #333;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+      
+      .section-title {
+        font-size: 18px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .tab-container {
+        gap: 8px;
+      }
+      
+      .tab-btn {
+        padding: 6px 16px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 导航栏 -->
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/">🏠 首页</a>
+      <a href="/market">📊 市场概览</a>
+      <a href="/advanced" class="active">🎯 高级功能</a>
+      <a href="/tracking">📍 实时追踪</a>
+      <a href="/recommend">💡 智能推荐</a>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <h1>🎯 高级功能</h1>
+    <div class="subtitle">板块行情 · 资金流向 · 技术选股 · 强势股票池</div>
+    <div class="last-update">最后更新: <span id="last-update">加载中...</span></div>
+  </header>
+
+  <!-- 主内容区 -->
+  <div class="container">
+    
+    <!-- 板块行情 -->
+    <div class="section-title">
+      <span>📈 板块行情</span>
+      <span class="subtitle">概念板块 · 行业板块 Top 20</span>
+    </div>
+    
+    <div class="tab-container" id="sector-tabs">
+      <button class="tab-btn active" data-type="concept">概念板块</button>
+      <button class="tab-btn" data-type="industry">行业板块</button>
+    </div>
+    
+    <div class="table-container">
+      <table id="sector-table">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>板块名称</th>
+            <th>领涨股</th>
+            <th>涨跌幅</th>
+            <th>成交额(亿)</th>
+            <th>上涨家数</th>
+            <th>下跌家数</th>
+          </tr>
+        </thead>
+        <tbody id="sector-tbody">
+          <tr><td colspan="7" class="loading">正在加载板块数据...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 资金流向排行 -->
+    <div class="section-title">
+      <span>💰 资金流向排行</span>
+      <span class="subtitle">主力资金净流入 Top 50</span>
+    </div>
+    
+    <div class="tab-container" id="money-tabs">
+      <button class="tab-btn active" data-type="inflow">净流入</button>
+      <button class="tab-btn" data-type="outflow">净流出</button>
+    </div>
+    
+    <div class="table-container">
+      <table id="money-table">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>股票代码</th>
+            <th>股票名称</th>
+            <th>最新价</th>
+            <th>涨跌幅</th>
+            <th>主力净额(万)</th>
+            <th>超大单</th>
+            <th>大单</th>
+            <th>中单</th>
+            <th>小单</th>
+          </tr>
+        </thead>
+        <tbody id="money-tbody">
+          <tr><td colspan="10" class="loading">正在加载资金数据...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 技术突破选股 -->
+    <div class="section-title">
+      <span>🚀 技术突破选股</span>
+      <span class="subtitle">突破新高 · 放量突破 · 涨停突破</span>
+    </div>
+    
+    <div class="tab-container" id="breakthrough-tabs">
+      <button class="tab-btn active" data-type="new_high">突破新高</button>
+      <button class="tab-btn" data-type="volume_breakthrough">放量突破</button>
+      <button class="tab-btn" data-type="limit_up">涨停突破</button>
+    </div>
+    
+    <div class="table-container">
+      <table id="breakthrough-table">
+        <thead>
+          <tr>
+            <th>股票代码</th>
+            <th>股票名称</th>
+            <th>最新价</th>
+            <th>涨跌幅</th>
+            <th>成交额(亿)</th>
+            <th>换手率</th>
+            <th>信号说明</th>
+          </tr>
+        </thead>
+        <tbody id="breakthrough-tbody">
+          <tr><td colspan="7" class="loading">正在加载突破信号...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 强势股票池 -->
+    <div class="section-title">
+      <span>⭐ 强势股票池</span>
+      <span class="subtitle">连板股票 · 强势突破 · 稳健强势股</span>
+    </div>
+    
+    <div class="tab-container" id="strong-tabs">
+      <button class="tab-btn active" data-type="continuous_rise">连板股票</button>
+      <button class="tab-btn" data-type="new_record">强势突破</button>
+      <button class="tab-btn" data-type="strong_consolidation">稳健强势股</button>
+    </div>
+    
+    <div class="table-container">
+      <table id="strong-table">
+        <thead>
+          <tr>
+            <th>股票代码</th>
+            <th>股票名称</th>
+            <th>最新价</th>
+            <th>涨跌幅</th>
+            <th>连涨天数</th>
+            <th>区间涨幅</th>
+            <th>成交额(亿)</th>
+          </tr>
+        </thead>
+        <tbody id="strong-tbody">
+          <tr><td colspan="7" class="loading">正在加载强势股票...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 数据可视化图表 -->
+    <div class="section-title">
+      <span>📊 数据可视化</span>
+      <span class="subtitle">市场资金总览 · 板块表现统计</span>
+    </div>
+    
+    <div class="card-grid">
+      <div class="card">
+        <div class="title">市场资金总览</div>
+        <div class="label">主力净流入</div>
+        <div class="value up" id="total-inflow">-</div>
+        <div class="label">今日净流入家数</div>
+        <div class="value" id="inflow-count">-</div>
+      </div>
+      
+      <div class="card">
+        <div class="title">板块表现</div>
+        <div class="label">上涨板块数</div>
+        <div class="value up" id="sector-up">-</div>
+        <div class="label">下跌板块数</div>
+        <div class="value down" id="sector-down">-</div>
+      </div>
+      
+      <div class="card">
+        <div class="title">技术信号</div>
+        <div class="label">突破新高</div>
+        <div class="value" id="signal-high">-</div>
+        <div class="label">放量突破</div>
+        <div class="value" id="signal-volume">-</div>
+      </div>
+      
+      <div class="card">
+        <div class="title">强势股票</div>
+        <div class="label">连板股票</div>
+        <div class="value" id="strong-rise">-</div>
+        <div class="label">创新高</div>
+        <div class="value" id="strong-high">-</div>
+      </div>
+    </div>
+    
+    <!-- 图表功能待开发：需要历史数据存储
+    <div class="chart-container">
+      <div class="chart-title">📈 市场资金流向趋势（近10日）</div>
+      <div id="money-flow-chart" style="width: 100%; height: 350px;">
+        <div class="loading">图表加载中...</div>
+      </div>
+    </div>
+    -->
+
+  </div>
+
+  <script>
+    // ==================== 全局变量 ====================
+    let currentSectorType = 'concept';
+    let currentMoneyType = 'inflow';
+    let currentBreakthroughType = 'new_high';
+    let currentStrongType = 'continuous_rise';
+    
+    // ==================== 标签切换 ====================
+    // 板块行情标签
+    document.querySelectorAll('#sector-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#sector-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSectorType = btn.dataset.type;
+        fetchSectorData();
+      });
+    });
+    
+    // 资金流向标签
+    document.querySelectorAll('#money-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#money-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMoneyType = btn.dataset.type;
+        fetchMoneyFlowData();
+      });
+    });
+    
+    // 技术突破标签
+    document.querySelectorAll('#breakthrough-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#breakthrough-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentBreakthroughType = btn.dataset.type;
+        fetchBreakthroughData();
+      });
+    });
+    
+    // 强势股票标签
+    document.querySelectorAll('#strong-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#strong-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStrongType = btn.dataset.type;
+        fetchStrongStocksData();
+      });
+    });
+    
+    // ==================== 数据加载函数 ====================
+    
+    // 板块行情数据
+    async function fetchSectorData() {
+      try {
+        const response = await fetch(`/api/sectors/${currentSectorType}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          updateSectorTable(result.data);
+        } else {
+          showError('sector-tbody', 7);
+        }
+      } catch (error) {
+        console.error('加载板块数据失败:', error);
+        showError('sector-tbody', 7);
+      }
+    }
+    
+    // 资金流向数据
+    async function fetchMoneyFlowData() {
+      try {
+        const response = await fetch(`/api/money-flow/${currentMoneyType}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          updateMoneyTable(result.data);
+        } else {
+          showError('money-tbody', 10);
+        }
+      } catch (error) {
+        console.error('加载资金数据失败:', error);
+        showError('money-tbody', 10);
+      }
+    }
+    
+    // 技术突破数据
+    async function fetchBreakthroughData() {
+      try {
+        const response = await fetch(`/api/breakthrough/${currentBreakthroughType}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          updateBreakthroughTable(result.data);
+        } else {
+          showError('breakthrough-tbody', 7);
+        }
+      } catch (error) {
+        console.error('加载突破数据失败:', error);
+        showError('breakthrough-tbody', 7);
+      }
+    }
+    
+    // 强势股票数据
+    async function fetchStrongStocksData() {
+      try {
+        const response = await fetch(`/api/strong-stocks/${currentStrongType}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          updateStrongTable(result.data);
+        } else {
+          showError('strong-tbody', 7);
+        }
+      } catch (error) {
+        console.error('加载强势股票失败:', error);
+        showError('strong-tbody', 7);
+      }
+    }
+    
+    // 加载统计概览数据
+    async function fetchOverviewStats() {
+      try {
+        const response = await fetch('/api/advanced/overview');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          updateOverviewStats(result.data);
+        }
+      } catch (error) {
+        console.error('加载概览数据失败:', error);
+      }
+    }
+    
+    // ==================== 表格更新函数 ====================
+    
+    // 更新板块表格
+    function updateSectorTable(data) {
+      const tbody = document.getElementById('sector-tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">暂无数据</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map((item, index) => {
+        const changeClass = item.change >= 0 ? 'positive' : 'negative';
+        const changeSymbol = item.change >= 0 ? '+' : '';
+        const topClass = index < 3 ? 'top3' : '';
+        
+        return `
+          <tr class="${topClass}" onclick="viewSectorDetail('${item.code}', '${item.name}')">
+            <td>${index + 1}</td>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.leader || '-'}</td>
+            <td class="${changeClass}">${changeSymbol}${item.change}%</td>
+            <td>${item.volume}</td>
+            <td class="positive">${item.up_count || 0}</td>
+            <td class="negative">${item.down_count || 0}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // 更新资金流向表格
+    function updateMoneyTable(data) {
+      const tbody = document.getElementById('money-tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">暂无数据</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map((item, index) => {
+        const changeClass = item.change >= 0 ? 'positive' : 'negative';
+        const changeSymbol = item.change >= 0 ? '+' : '';
+        const topClass = index < 3 ? 'top3' : '';
+        
+        return `
+          <tr class="${topClass}" onclick="viewStock('${item.code}')">
+            <td>${index + 1}</td>
+            <td class="stock-code">${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.price}</td>
+            <td class="${changeClass}">${changeSymbol}${item.change}%</td>
+            <td class="${item.main_money >= 0 ? 'positive' : 'negative'}">${item.main_money}</td>
+            <td class="${item.super_large >= 0 ? 'positive' : 'negative'}">${item.super_large}</td>
+            <td class="${item.large >= 0 ? 'positive' : 'negative'}">${item.large}</td>
+            <td class="${item.medium >= 0 ? 'positive' : 'negative'}">${item.medium}</td>
+            <td class="${item.small >= 0 ? 'positive' : 'negative'}">${item.small}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // 更新技术突破表格
+    function updateBreakthroughTable(data) {
+      const tbody = document.getElementById('breakthrough-tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">暂无数据</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map((item) => {
+        const changeClass = item.change >= 0 ? 'positive' : 'negative';
+        const changeSymbol = item.change >= 0 ? '+' : '';
+        
+        return `
+          <tr onclick="viewStock('${item.code}')">
+            <td class="stock-code">${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.price}</td>
+            <td class="${changeClass}">${changeSymbol}${item.change}%</td>
+            <td>${item.volume}</td>
+            <td>${item.turnover}%</td>
+            <td>${item.signal}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // 更新强势股票表格
+    function updateStrongTable(data) {
+      const tbody = document.getElementById('strong-tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">暂无数据</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map((item) => {
+        const changeClass = item.change >= 0 ? 'positive' : 'negative';
+        const changeSymbol = item.change >= 0 ? '+' : '';
+        
+        return `
+          <tr onclick="viewStock('${item.code}')">
+            <td class="stock-code">${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.price}</td>
+            <td class="${changeClass}">${changeSymbol}${item.change}%</td>
+            <td>${item.days || '-'}</td>
+            <td class="positive">+${item.period_change}%</td>
+            <td>${item.volume}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // 更新概览统计
+    function updateOverviewStats(data) {
+      document.getElementById('total-inflow').textContent = data.total_inflow || '-';
+      document.getElementById('inflow-count').textContent = data.inflow_count || '-';
+      document.getElementById('sector-up').textContent = data.sector_up || '-';
+      document.getElementById('sector-down').textContent = data.sector_down || '-';
+      document.getElementById('signal-high').textContent = data.signal_high || '-';
+      document.getElementById('signal-volume').textContent = data.signal_volume || '-';
+      document.getElementById('strong-rise').textContent = data.strong_rise || '-';
+      document.getElementById('strong-high').textContent = data.strong_high || '-';
+    }
+    
+    // ==================== 工具函数 ====================
+    
+    // 显示错误
+    function showError(tbodyId, colspan) {
+      document.getElementById(tbodyId).innerHTML = 
+        `<tr><td colspan="${colspan}" class="loading">⚠️ 加载失败，请刷新重试</td></tr>`;
+    }
+    
+    // 更新时间
+    function updateLastUpdate() {
+      const now = new Date();
+      document.getElementById('last-update').textContent = 
+        now.toLocaleString('zh-CN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit' 
+        });
+    }
+    
+    // 查看股票详情
+    function viewStock(code) {
+      window.location.href = `/analyze/${code}`;
+    }
+    
+    // 查看板块详情
+    function viewSectorDetail(code, name) {
+      alert(`板块详情功能开发中...\n板块: ${name}\n代码: ${code}`);
+    }
+    
+    // ==================== 初始化 ====================
+    async function initPage() {
+      updateLastUpdate();
+      
+      // 并发加载所有数据
+      await Promise.all([
+        fetchSectorData(),
+        fetchMoneyFlowData(),
+        fetchBreakthroughData(),
+        fetchStrongStocksData(),
+        fetchOverviewStats()
+      ]);
+    }
+    
+    // 页面加载完成后初始化
+    initPage();
+    
+    // 自动刷新（每5分钟）
+    setInterval(() => {
+      initPage();
+    }, 5 * 60 * 1000);
+  </script>
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+
+</body>
+</html>

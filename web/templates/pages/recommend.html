@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>💡 智能推荐 - CZSC分析工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: "微软雅黑", sans-serif;
+            margin: 0;
+            background-color: #fff8f5;
+            color: #333;
+        }
+        .nav-container{width:100%;background:#b22222;display:flex;justify-content:center}
+        .nav-wrapper{width:100%;max-width:900px;display:flex;justify-content:center;padding:10px 0}
+        .nav-wrapper a{color:#fff;text-decoration:none;margin:0 15px;font-size:15px;padding:5px 10px;border-radius:5px}
+        .nav-wrapper a:hover, .nav-wrapper a.active{background:rgba(255,255,255,.2)}
+        header {
+            background: #b22222;
+            color: white;
+            padding: 16px 20px;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #f3e6e6;
+        }
+        th {
+            background-color: #fbeaea;
+            color: #800000;
+        }
+        tr:hover {
+            background-color: #fff0f0;
+        }
+        .no-data {
+            background: #fff3f3;
+            padding: 15px;
+            color: #888;
+            font-style: italic;
+            border-radius: 4px;
+            margin-top: 20px;
+            border-left: 4px solid #d9534f;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-container">
+      <div class="nav-wrapper">
+        <a href="/">🏠 首页</a>
+      <a href="/market">📊 市场概览</a>
+      <a href="/advanced">🎯 高级功能</a>
+        <a href="/tracking">📍 实时追踪</a>
+        <a href="/recommend" class="active">💡 智能推荐</a>
+      </div>
+    </div>
+    <header>
+        <h1>💡 智能推荐股票</h1>
+    </header>
+    <div class="container" id="content">
+        <div class="no-data">正在加载推荐结果，请稍候...</div>
+    </div>
+    <script>
+        async function loadRecommendations() {
+            const container = document.getElementById("content");
+            try {
+                const response = await fetch('/api/tracking/recommend');
+                const result = await response.json();
+                // 检查返回格式
+                if (!result.success || !result.data) {
+                    container.innerHTML = '<div class="no-data">⚠️ 数据格式错误。</div>';
+                    return;
+                }
+                const data = result.data;
+                // 检查是否有推荐数据
+                let totalCount = 0;
+                Object.keys(data).forEach(market => {
+                    if (data[market]['买点推荐']) {
+                        totalCount += data[market]['买点推荐'].length;
+                    }
+                });
+                if (totalCount === 0) {
+                    container.innerHTML = '<div class="no-data">当前暂无推荐股票。</div>';
+                    return;
+                }
+                // 按市场显示推荐
+                let html = '';
+                // 市场顺序
+                const marketOrder = ['创业板', '科创板', '上证', '深证', '北交所'];
+                marketOrder.forEach(market => {
+                    if (!data[market]) return;
+                    const buyList = data[market]['买点推荐'] || [];
+                    const sellList = data[market]['卖点推荐'] || [];
+                    if (buyList.length === 0 && sellList.length === 0) return;
+                    html += `<h2 style="color:#b22222;margin-top:30px;border-bottom:2px solid #b22222;padding-bottom:5px;">📊 ${market}</h2>`;
+                    // 买点推荐
+                    if (buyList.length > 0) {
+                        html += '<h3 style="color:#28a745;margin-top:20px;">✅ 买点推荐</h3>';
+                        html += '<table><thead><tr>';
+                        html += '<th>股票代码</th><th>股票名称</th><th>类型</th><th>价格</th><th>时间</th><th>推荐理由</th>';
+                        html += '</tr></thead><tbody>';
+                        buyList.forEach(stock => {
+                            html += `<tr>
+                                <td><a href="/analyze/${stock.code}" target="_blank" style="color:#b22222;text-decoration:none;font-weight:bold;">${stock.code}</a></td>
+                                <td>${stock.name || '--'}</td>
+                                <td><span style="color:#28a745;font-weight:bold;">${stock['类型'] || '--'}</span></td>
+                                <td>¥${stock['价格'] ? stock['价格'].toFixed(2) : '--'}</td>
+                                <td>${stock['时间'] || '--'}</td>
+                                <td style="color:#666;font-size:13px;">${stock['推荐理由'] || '--'}</td>
+                            </tr>`;
+                        });
+                        html += '</tbody></table>';
+                    }
+                    // 卖点推荐
+                    if (sellList.length > 0) {
+                        html += '<h3 style="color:#dc3545;margin-top:20px;">⚠️ 卖点推荐</h3>';
+                        html += '<table><thead><tr>';
+                        html += '<th>股票代码</th><th>股票名称</th><th>类型</th><th>价格</th><th>时间</th><th>推荐理由</th>';
+                        html += '</tr></thead><tbody>';
+                        sellList.forEach(stock => {
+                            html += `<tr>
+                                <td><a href="/analyze/${stock.code}" target="_blank" style="color:#b22222;text-decoration:none;font-weight:bold;">${stock.code}</a></td>
+                                <td>${stock.name || '--'}</td>
+                                <td><span style="color:#dc3545;font-weight:bold;">${stock['类型'] || '--'}</span></td>
+                                <td>¥${stock['价格'] ? stock['价格'].toFixed(2) : '--'}</td>
+                                <td>${stock['时间'] || '--'}</td>
+                                <td style="color:#666;font-size:13px;">${stock['推荐理由'] || '--'}</td>
+                            </tr>`;
+                        });
+                        html += '</tbody></table>';
+                    }
+                });
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = '<div class="no-data">⚠️ 加载推荐数据失败，请检查服务器。</div>';
+                console.error('Error loading recommendations:', err);
+            }
+        }
+        loadRecommendations();
+    </script>
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+
+</body>
+</html>

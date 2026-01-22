@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量化策略分析平台 - 专业股票分析工具</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>📈 量化策略分析平台</h1>
+                </div>
+                <nav class="main-nav">
+                    <ul>
+                        <li><a href="#features">功能特点</a></li>
+                        <li><a href="#strategies">策略体系</a></li>
+                        <li><a href="#dashboard">数据展示</a></li>
+                        <li><a href="#testimonials">用户反馈</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h2>专业级量化分析，尽在掌握</h2>
+                    <p>基于缠论结构的量化策略分析平台，为您提供精准的买卖点信号、实时追踪和智能推荐</p>
+                    <div class="hero-actions">
+                        <a href="/market" class="btn btn-large btn-primary">立即体验</a>
+                        <a href="#features" class="btn btn-large btn-secondary">了解更多</a>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div id="hero-chart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">核心功能</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>策略信号</h3>
+                    <p>基于缠论结构的买卖点识别，为您提供精准的交易信号</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>实时追踪</h3>
+                    <p>30分钟级别实时追踪信号表现，动态评估买卖点表现</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>趋势分析</h3>
+                    <p>准确识别中枢、线段方向，掌握市场运行趋势</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>智能推荐</h3>
+                    <p>基于多维度因子的智能股票筛选与策略推荐</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="strategies" class="strategies">
+        <div class="container">
+            <h2 class="section-title">策略体系</h2>
+            <div class="strategies-content">
+                <div class="strategy-visual">
+                    <div class="radar-chart-container">
+                        <canvas id="strategy-radar"></canvas>
+                    </div>
+                </div>
+                <div class="strategy-text">
+                    <div class="strategy-tabs">
+                        <div class="tab active" data-tab="tab1">缠论买卖点</div>
+                        <div class="tab" data-tab="tab2">中枢形态</div>
+                        <div class="tab" data-tab="tab3">盘口语境</div>
+                    </div>
+                    <div class="tab-content">
+                        <div id="tab1" class="tab-pane active">
+                            <h3>缠论买卖点策略</h3>
+                            <p>基于严格的缠论结构定义，识别一、二、三类买卖点信号，提供精准的交易时机</p>
+                            <ul class="strategy-list">
+                                <li>一类买点：向上突破中枢</li>
+                                <li>二类买点：回调不破中枢</li>
+                                <li>三类买点：上升趋势回调确认</li>
+                            </ul>
+                        </div>
+                        <div id="tab2" class="tab-pane">
+                            <h3>中枢形态分析</h3>
+                            <p>精确识别市场中枢位置，判断趋势变化方向</p>
+                            <ul class="strategy-list">
+                                <li>中枢上移：持续上升趋势确认</li>
+                                <li>中枢震荡：区间波动，蓄势待发</li>
+                                <li>中枢下移：趋势转折，注意规避风险</li>
+                            </ul>
+                        </div>
+                        <div id="tab3" class="tab-pane">
+                            <h3>盘口语境解析</h3>
+                            <p>解读盘面走势背后的资金动向与市场情绪</p>
+                            <ul class="strategy-list">
+                                <li>盘口主导：识别主力资金操作意图</li>
+                                <li>情绪波动：量化市场恐慌与贪婪</li>
+                                <li>筹码分布：解析持仓结构与换手率</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="dashboard" class="dashboard">
+        <div class="container">
+            <h2 class="section-title">数据展示</h2>
+            <div class="dashboard-content">
+                <div class="dashboard-visual">
+                    <div id="sample-kline" class="kline-container"></div>
+                </div>
+                <div class="dashboard-text">
+                    <h3>专业级交互式图表</h3>
+                    <p>基于Plotly打造的高度交互式K线图表，支持缠论笔、线段、中枢标注</p>
+                    <ul class="dashboard-features">
+                        <li><span class="check-icon">✓</span> 多级别联动分析</li>
+                        <li><span class="check-icon">✓</span> 买卖点信号标注</li>
+                        <li><span class="check-icon">✓</span> 中枢区间可视化</li>
+                        <li><span class="check-icon">✓</span> 实时数据更新</li>
+                        <li><span class="check-icon">✓</span> 自定义技术指标</li>
+                    </ul>
+                    <a href="/demo" class="btn btn-secondary">查看演示</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="testimonials" class="testimonials">
+        <div class="container">
+            <h2 class="section-title">用户反馈</h2>
+            <div class="testimonials-slider">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"这款分析工具让我对市场有了全新的理解，买卖点信号准确率远超我的预期。"</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">LW</div>
+                        <div class="author-info">
+                            <h4>李先生</h4>
+                            <p>职业投资者，使用6个月</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"实时追踪功能非常实用，让我能及时调整策略，避免了很多不必要的损失。"</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">ZM</div>
+                        <div class="author-info">
+                            <h4>张女士</h4>
+                            <p>私募基金经理，使用1年</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"中枢趋势分析准确把握了市场节奏，让我的投资决策更加科学和系统化。"</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">WJ</div>
+                        <div class="author-info">
+                            <h4>王先生</h4>
+                            <p>资深交易员，使用8个月</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>准备好提升您的交易策略了吗？</h2>
+                <p>立即使用，获取专业级量化分析工具，精准把握每一个交易机会</p>
+                <a href="/market" class="btn btn-large btn-primary">开始分析</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>📈 量化策略分析平台</h2>
+                    <p>专业的股票量化分析工具</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-links-column">
+                        <h3>平台</h3>
+                        <ul>
+                            <li><a href="/features">功能介绍</a></li>
+                            <li><a href="/pricing">价格方案</a></li>
+                            <li><a href="/about">关于我们</a></li>
+                            <li><a href="/contact">联系我们</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-links-column">
+                        <h3>资源</h3>
+                        <ul>
+                            <li><a href="/blog">策略博客</a></li>
+                            <li><a href="/docs">使用文档</a></li>
+                            <li><a href="/faq">常见问题</a></li>
+                            <li><a href="/support">技术支持</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-links-column">
+                        <h3>法律</h3>
+                        <ul>
+                            <li><a href="/terms">服务条款</a></li>
+                            <li><a href="/privacy">隐私政策</a></li>
+                            <li><a href="/disclaimer">风险声明</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 量化策略分析平台. 保留所有权利.</p>
+                <p>
+                    <a href="https://beian.miit.gov.cn/" target="_blank" style="color: #999; font-size: 12px; text-decoration: none;">
+                        蜀ICP备2025141417号-1
+                    </a>
+                </p>                
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/index.js"></script>
+    <script>
+        var _hmt = _hmt || [];
+        (function() {
+          var hm = document.createElement("script");
+          hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+          var s = document.getElementsByTagName("script")[0]; 
+          s.parentNode.insertBefore(hm, s);
+        })();
+        </script>        
+</body>
+</html>

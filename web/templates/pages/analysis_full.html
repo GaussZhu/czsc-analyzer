@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>{{ result.stock.name }}({{ result.stock.code }}) - 分析结果</title>
+  <style>
+    body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;margin:0;padding:0;background:#fff8f5;color:#333}
+    .nav-container{width:100%;background:#b22222;display:flex;justify-content:center}
+    .nav-wrapper{width:100%;max-width:900px;display:flex;justify-content:center;padding:10px 0}
+    .nav-wrapper a{color:#fff;text-decoration:none;margin:0 15px;font-size:15px;padding:5px 10px;border-radius:5px}
+    .nav-wrapper a:hover{background:rgba(255,255,255,.2)}
+    .container{width:100%;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:25px}
+    .header{background:#b22222;color:#fff;padding:15px 20px;border-radius:6px 6px 0 0;margin:-25px -25px 20px}
+    .header h1{margin:0;font-size:22px}
+    .stock-price{font-size:24px;font-weight:700;float:right}
+    .update-time,.strategy-name{font-size:13px;color:#f5c6cb}
+    .section-title{font-size:18px;font-weight:700;margin-bottom:15px;color:#b22222;border-left:4px solid #b22222;padding-left:10px}
+    .section{margin-bottom:30px}
+    .placeholder{background:#fceeee;color:#666;padding:15px;border-radius:4px;font-style:italic}
+    .back-link{display:inline-block;margin-top:20px;color:#b22222;text-decoration:none}
+    .back-link:hover{text-decoration:underline}
+    .footer{text-align:center;font-size:13px;color:#888;margin-top:40px;padding-top:20px;border-top:1px solid #ddd}
+    img.kline{width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:20px}
+    .tooltip-icon{cursor:help;margin-left:6px;font-weight:700;color:#eee;border-bottom:1px dotted #eee}
+    /* AI 徽章状态色 */
+    .ai-badge{margin-top:8px}
+    .ai-chip{background:#ffecec;color:#b22222;border-radius:6px;padding:4px 8px;margin-right:8px}
+    .ai-line{color:#fff;opacity:.95;margin-left:6px}
+    .bullish{background:#0a0!important}
+    .bearish{background:#b00!important}
+    .neutral{background:#666!important}
+  </style>
+</head>
+<body>
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/list_stocks">📈 我的关注</a>
+      <a href="/recommend">📊 策略信号</a>
+      <a href="/tracking">🔍 实时追踪</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>{{ result.stock.name }}({{ result.stock.code }})
+        <span class="stock-price">¥{{ "%.2f"|format(result.last_price) }}</span>
+      </h1>
+      <div class="update-time">最后更新: {{ now }}</div>
+      <div class="strategy-name">策略：{{ result.strategy or '默认策略' }}</div>
+      <div class="strategy-name">
+        基本面评分：{{ result.fundamental_score if result.fundamental_score else '暂无' }} / 100
+        <span class="tooltip-icon" title="基于盈利稳定性、ROE、负债率、利润增长率、自由现金流、估值（PE/PB）、股息率、存货周转率等8项评分加权计算">🛈</span>
+      </div>
+      <!-- 这里会由 JS 注入 AI 预测徽章 -->
+      <div id="ai-badge" class="ai-badge"></div>
+    </div>
+
+    <!-- 顶部两栏：30min 跟踪 + 基本面雷达 -->
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;gap:24px;">
+        <div class="section-item" style="flex:1;">
+          <div class="section-title">
+            <input type="checkbox" checked disabled style="margin-right:4px;" /> 30分钟追踪状态
+          </div>
+          {% if result.realtime_tracking and result.realtime_tracking|length > 0 %}
+            {% for t in result.realtime_tracking %}
+            <div>
+              <div>🔍 来源信号：{{ t.base_signal.类型 }}（{{ t.base_signal.时间 }}）</div>
+              <div>当前价格：¥{{ t.tracking_status.当前价格 }}</div>
+              <div>涨幅：{{ t.tracking_status.涨幅 }}，最大涨幅：{{ t.tracking_status.最大涨幅 }}</div>
+              <div>最大回撤：{{ t.tracking_status.最大回撤 }}</div>
+              <div>最新跟踪时间：{{ t.tracking_status.最新30分钟K线时间 }}</div>
+              <div>建议：{{ t.tracking_status.当前建议 }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="placeholder">暂无追踪数据</div>
+          {% endif %}
+        </div>
+
+        <div class="section-item" style="flex:1;">
+          <div class="section-title">
+            <input type="checkbox" checked disabled style="margin-right:4px;" /> 基本面雷达图
+          </div>
+          <div id="radar-chart" style="width:100%;height:320px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主 K 线图 -->
+    <div class="section" style="width:100vw;margin-left:calc(-50vw + 50%);">
+      <div class="section-title" style="padding-left:25px;">🖼️ 交互式K线图</div>
+      <div id="kline-chart" style="width:100%;height:600px;"></div>
+      <div class="placeholder" style="margin:20px;text-align:center;" id="kline-placeholder">
+        K线图数据正在加载或暂时不可用，请查看下方买卖点列表
+      </div>
+    </div>
+
+    <!-- 买卖点列表 -->
+    <div class="section">
+      <div class="section-title">📊 识别的买卖点信号</div>
+      {% if result.raw_signals and result.raw_signals|length > 0 %}
+      <table style="width:100%;border-collapse:collapse;margin-top:15px;">
+        <thead>
+          <tr style="background:#f5f5f5;border-bottom:2px solid #b22222;">
+            <th style="padding:10px;text-align:left;">信号类型</th>
+            <th style="padding:10px;text-align:left;">时间</th>
+            <th style="padding:10px;text-align:right;">价格</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for signal in result.raw_signals %}
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">
+              <span style="color:{% if '买' in signal.type %}green{% else %}red{% endif %};font-weight:600;">
+                {{ signal.type }}
+              </span>
+            </td>
+            <td style="padding:10px;">{{ signal.date }}</td>
+            <td style="padding:10px;text-align:right;font-weight:600;">¥{{ "%.2f"|format(signal.price) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="placeholder">暂无买卖点信号</div>
+      {% endif %}
+    </div>
+
+    <!-- 趋势分析卡片（保持你现有样式与变量） -->
+    <div class="section">
+      <div class="section-title">📍 趋势分析</div>
+      {% if result.trend_analysis %}
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>中枢趋势分析</h5>
+          <div class="d-flex">
+            <div class="badge {% if result.trend_analysis.trend_type == '上升趋势' %}bg-success{% elif result.trend_analysis.trend_type == '下降趋势' %}bg-danger{% else %}bg-warning text-dark{% endif %} me-2">
+              {{ result.trend_analysis.trend_type }}
+            </div>
+            <div class="badge
+              {% if result.trend_analysis.position == '向上离开中枢' %}bg-info
+              {% elif result.trend_analysis.position == '向下离开中枢' %}bg-secondary
+              {% elif result.trend_analysis.position == '中枢上沿' %}bg-primary
+              {% elif result.trend_analysis.position == '中枢下沿' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">
+              {{ result.trend_analysis.position }}
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <p><strong>详细描述:</strong> {{ result.trend_analysis.detail }}</p>
+          {% if result.trend_analysis.signal %}
+          <p><strong>趋势信号:</strong> {{ result.trend_analysis.signal }}</p>
+          {% endif %}
+          {% if result.trend_analysis.evidence %}
+          <p><strong>趋势证据:</strong> {{ result.trend_analysis.evidence }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 关注按钮 -->
+    <button id="follow-btn"
+      {% if is_followed %}disabled style="background:gray;color:#fff"
+      {% else %}style="background:#b22222;color:#fff"
+      {% endif %}>
+      {% if is_followed %}✅ 已在关注列表{% else %}➕ 加入关注列表{% endif %}
+    </button>
+
+    <a href="/list_stocks" class="back-link">← 返回股票列表</a>
+    <div class="footer">
+      分析结果基于缠中说禅技术分析理论，仅供参考，不构成投资建议。<br>
+      © 2025 缠中说禅股票分析工具 | 数据源：通达信 API
+    </div>
+  </div>
+
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+  <!-- 雷达图 -->
+  <script>
+  window.addEventListener('load', function () {
+    const radarLabels = {{ result.fundamental_radar_labels | default([]) | tojson | safe }};
+    const radarValues = {{ result.fundamental_radar_values | default([]) | tojson | safe }};
+    if (!radarValues || radarValues.length === 0) {
+      document.getElementById('radar-chart').innerHTML =
+        "<p style='color:#999;font-size:13px;'>暂无基本面评分数据</p>";
+      return;
+    }
+    const trace = {
+      type:'scatterpolar',
+      r: radarValues.concat(radarValues[0]),
+      theta: radarLabels.concat(radarLabels[0]),
+      fill:'toself',
+      name:'基本面六维评分',
+      line:{color:'#d62728'}
+    };
+    const layout = {
+      margin:{t:30,r:10,l:10,b:10},
+      polar:{ radialaxis:{visible:true,range:[0,100]},
+              angularaxis:{tickfont:{size:13},rotation:90,direction:"clockwise"} },
+      showlegend:false
+    };
+    Plotly.newPlot('radar-chart',[trace],layout);
+  });
+  </script>
+
+  <!-- 主图 + 买卖点 -->
+  <script>
+  // ① 主 K 线
+  const plotData = {{ plot_data | tojson | safe }};
+  if (plotData && plotData.data && plotData.data.length > 0) {
+    Plotly.newPlot('kline-chart', plotData.data, plotData.layout);
+  } else {
+    document.getElementById('kline-placeholder').style.display = 'block';
+  }
+
+  // ② 买卖点（容错：type 可能为空）
+  const rawSignals = JSON.parse('{{ result.raw_signals | tojson | safe }}') || [];
+  const buyX=[],buyY=[],buyText=[],sellX=[],sellY=[],sellText=[];
+  rawSignals.forEach(sig=>{
+    const t = (sig && sig.type) ? String(sig.type) : "";
+    if (t.includes('买')) { buyX.push(sig.date); buyY.push(sig.price); buyText.push(t); }
+    else if (t.includes('卖')) { sellX.push(sig.date); sellY.push(sig.price); sellText.push(t); }
+  });
+  Plotly.addTraces('kline-chart', [
+    {x:buyX,y:buyY,text:buyText,mode:'markers+text',
+     marker:{symbol:'triangle-up',color:'green',size:9},textposition:'bottom center',name:'Buy'},
+    {x:sellX,y:sellY,text:sellText,mode:'markers+text',
+     marker:{symbol:'triangle-down',color:'red',size:9},textposition:'top center',name:'Sell'}
+  ]);
+  </script>
+
+  <!-- 叠加 AI 预测 + 徽章（方向/强度/风险/上沿） -->
+  <script>
+  (function(){
+    const forecast = {{ (result.ai_forecast or {}) | tojson | safe }};
+    if(!forecast || !forecast.y_ts || forecast.y_ts.length===0){ return; }
+
+    const xPred = forecast.y_ts;
+    const qs = forecast.quantiles || {};
+    const p50 = (qs.p50||[]).map(Number);
+    const p10 = (qs.p10||[]).map(Number);
+    const p90 = (qs.p90||[]).map(Number);
+    const p05 = (qs.p05||[]).map(Number);
+    const p95 = (qs.p95||[]).map(Number);
+
+    // 置信带与中位线
+    const traces = [
+      {x:xPred,y:p05,mode:'lines',line:{width:0},hoverinfo:'skip',showlegend:false,name:'P05'},
+      {x:xPred,y:p95,mode:'lines',line:{width:0},fill:'tonexty',fillcolor:'rgba(31,119,180,0.06)',name:'P05–P95'},
+      {x:xPred,y:p10,mode:'lines',line:{width:0},hoverinfo:'skip',showlegend:false,name:'P10'},
+      {x:xPred,y:p90,mode:'lines',line:{width:0},fill:'tonexty',fillcolor:'rgba(31,119,180,0.12)',name:'P10–P90'},
+      {x:xPred,y:p50,mode:'lines',name:'AI中位线',line:{dash:'dash'}}
+    ];
+    // 样本路径（最多 5 条）
+    (forecast.sample_paths||[]).slice(0,5).forEach((ys,i)=>{
+      traces.push({x:xPred,y:ys.map(Number),mode:'lines',name:`样本${i+1}`,
+                   line:{width:1},opacity:.35,hoverinfo:'skip',showlegend:false});
+    });
+    Plotly.addTraces('kline-chart', traces);
+    Plotly.relayout('kline-chart', {'xaxis.range[1]': xPred[xPred.length-1]});
+
+    // ===== 徽章文案：按 p_up 自动判多/判空，并显示 P50 方向 =====
+    const m = forecast.metrics || {};
+    const pUp = Number(m.p_up||0);
+    const pDown = 1 - pUp;
+    const bias = pUp - 0.5;                         // 边际：>0 偏多，<0 偏空
+    const arrow = bias >= 0 ? "↑" : "↓";
+    const dirText = bias >= 0 ? `多方 ${(pUp*100).toFixed(1)}%`
+                              : `空方 ${(pDown*100).toFixed(1)}%`;
+    const strength = Math.abs(bias) >= 0.15 ? "强"
+                    : Math.abs(bias) >= 0.08 ? "中" : "弱";
+
+    // 以最后一个收盘为基准看 5 天后 P50 的相对变化
+    const lastClose = Number({{ result.last_price or 0 }}) || 0;
+    const p50_last  = (p50.length>0 ? p50[p50.length-1] : lastClose);
+    const medRet5d  = lastClose>0 ? (p50_last/lastClose - 1) : 0;
+    const medText   = (medRet5d>=0?"+":"") + (medRet5d*100).toFixed(1) + "%";
+
+    // 风险与上沿显示
+    const mddPct = ((Number(m.mdd_pred||0))*100).toFixed(1) + "%";
+    const p95_last = (p95.length>0 ? p95[p95.length-1] : lastClose);
+    const p95Ret = lastClose>0 ? ((p95_last/lastClose - 1)*100) : 0;
+    const p95Text = (p95Ret>=0?"+":"") + p95Ret.toFixed(1) + "%";
+
+    const badgeEl = document.getElementById('ai-badge');
+    const chipTxt = forecast.meta && forecast.meta.stub ? "（STUB）" : "（Kronos）";
+    badgeEl.innerHTML =
+      `<span class="ai-chip">🤖 AI预测 ${chipTxt}</span>
+       <span class="ai-line ${bias>0.05?'bullish':(bias<-0.05?'bearish':'neutral')}">
+        ${arrow}${dirText}（${strength}） | 中位线 ${medText} | 风险MDD ${mddPct} | 上沿P95 ${p95Text}
+       </span>`;
+  })();
+  </script>
+
+  <!-- 关注按钮事件 -->
+  <script>
+  document.getElementById("follow-btn")?.addEventListener("click", async () => {
+    const code = "{{ result.stock.code }}";
+    const name = "{{ result.stock.name }}";
+    try{
+      const res = await fetch("/add_stock",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,name})});
+      const data = await res.json();
+      if(res.ok){ alert("✅ 已成功加入关注列表！"); location.reload(); }
+      else{ alert("⚠️ 加入失败：" + (data.detail||"未知错误")); }
+    }catch(e){ alert("❌ 请求失败，请稍后重试"); }
+  });
+  </script>
+
+  <!-- 统计（如需） -->
+  <script>
+    var _hmt=_hmt||[];
+    (function(){var hm=document.createElement("script");
+      hm.src="https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s=document.getElementsByTagName("script")[0]; s.parentNode.insertBefore(hm,s);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>📍 实时追踪 - CZSC分析工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: "微软雅黑", sans-serif;
+      margin: 0;
+      background-color: #fff8f5;
+      color: #333;
+    }
+    .nav-container{width:100%;background:#b22222;display:flex;justify-content:center}
+    .nav-wrapper{width:100%;max-width:900px;display:flex;justify-content:center;padding:10px 0}
+    .nav-wrapper a{color:#fff;text-decoration:none;margin:0 15px;font-size:15px;padding:5px 10px;border-radius:5px}
+    .nav-wrapper a:hover, .nav-wrapper a.active{background:rgba(255,255,255,.2)}
+    header {
+      background: #b22222;
+      color: white;
+      padding: 16px 20px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+    .container {
+      max-width: 960px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      border-bottom: 1px solid #f3e6e6;
+      padding: 12px 15px;
+      text-align: center;
+    }
+    th {
+      background-color: #fbeaea;
+      color: #800000;
+    }
+    tr:hover {
+      background-color: #fff0f0;
+    }
+    .nodata {
+      padding: 20px;
+      text-align: center;
+      color: #999;
+      font-style: italic;
+      background: #fff0f0;
+      border-left: 4px solid #f08080;
+      margin-top: 20px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/">🏠 首页</a>
+      <a href="/analysis">📊 股票分析</a>
+      <a href="/tracking" class="active">📍 实时追踪</a>
+      <a href="/recommend">💡 智能推荐</a>
+    </div>
+  </div>
+
+  <header>
+    <h1>📍 实时追踪信号总览</h1>
+  </header>
+
+  <div class="container">
+    <table id="tracking-table">
+      <thead>
+        <tr>
+          <th>股票代码</th>
+          <th>股票名称</th>
+          <th>买入信息</th>
+          <th>当前状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 数据填充 -->
+      </tbody>
+    </table>
+    <div id="fallback" class="nodata">正在加载实时追踪数据...</div>
+  </div>
+
+  <script>
+    async function loadTrackingData() {
+      const tbody = document.querySelector('#tracking-table tbody');
+      const fallback = document.getElementById('fallback');
+      
+      try {
+        const response = await fetch('/api/tracking/list');
+        const result = await response.json();
+        
+        // 检查返回格式
+        if (!result.success || !result.data) {
+          fallback.style.display = "block";
+          fallback.textContent = "⚠️ 数据格式错误。";
+          return;
+        }
+        
+        const data = result.data;
+        fallback.style.display = "none";
+        
+        if (data.length === 0) {
+          fallback.style.display = "block";
+          fallback.textContent = "暂无追踪中的信号记录。";
+          return;
+        }
+
+        data.forEach(item => {
+          const tr = document.createElement('tr');
+          
+          // 构建状态显示
+          let statusText = '追踪中';
+          let statusColor = '#28a745';
+          if (item.closed) {
+            statusText = '已平仓';
+            statusColor = '#6c757d';
+          }
+          
+          // 构建收益显示
+          let profitText = '';
+          if (item.current_profit !== undefined && item.current_profit !== null) {
+            const profit = parseFloat(item.current_profit);
+            const profitColor = profit >= 0 ? '#28a745' : '#dc3545';
+            profitText = `<span style="color:${profitColor};font-weight:bold;">${profit > 0 ? '+' : ''}${profit.toFixed(2)}%</span>`;
+          }
+          
+          tr.innerHTML = `
+            <td><a href="/analyze/${item.code}" target="_blank" style="color:#b22222;text-decoration:none;font-weight:bold;">${item.code || '--'}</a></td>
+            <td>${item.name || '--'}</td>
+            <td>${item.buy_time || '--'} <br><small style="color:#666;">${item.buy_type || '--'} @ ¥${item.buy_price ? item.buy_price.toFixed(2) : '--'}</small></td>
+            <td><span style="color:${statusColor};">${statusText}</span><br>${profitText}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('加载失败:', err);
+        fallback.textContent = "⚠️ 加载追踪数据失败，请检查服务器。";
+      }
+    }
+
+    loadTrackingData();
+  </script>
+</body>
+</html>

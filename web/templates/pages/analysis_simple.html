@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>📊 股票查询 - CZSC分析工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "微软雅黑", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* 导航栏 */
+    .nav-container { width: 100%; background: #b22222; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .nav-wrapper { max-width: 1200px; margin: 0 auto; display: flex; justify-content: center; padding: 12px 20px; }
+    .nav-wrapper a { color: #fff; text-decoration: none; margin: 0 15px; font-size: 15px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav-wrapper a:hover, .nav-wrapper a.active { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    
+    /* 主容器 */
+    .main-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    
+    /* 搜索卡片 */
+    .search-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      padding: 48px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+    
+    .search-card h1 {
+      font-size: 32px;
+      color: #b22222;
+      margin-bottom: 16px;
+    }
+    
+    .search-card .subtitle {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 40px;
+    }
+    
+    /* 搜索框 */
+    .search-box {
+      position: relative;
+      margin-bottom: 24px;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      transition: all 0.3s;
+      outline: none;
+    }
+    
+    .search-box input:focus {
+      border-color: #b22222;
+      box-shadow: 0 0 0 4px rgba(178, 34, 34, 0.1);
+    }
+    
+    .search-box input::placeholder {
+      color: #999;
+    }
+    
+    /* 搜索按钮 */
+    .search-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #b22222 0%, #8b0000 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .search-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(178, 34, 34, 0.3);
+    }
+    
+    .search-btn:active {
+      transform: translateY(0);
+    }
+    
+    /* 快捷搜索 */
+    .quick-search {
+      margin-top: 32px;
+      padding-top: 32px;
+      border-top: 1px solid #eee;
+    }
+    
+    .quick-search h3 {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 16px;
+    }
+    
+    .quick-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    
+    .quick-tags span {
+      padding: 8px 16px;
+      background: #f5f5f5;
+      color: #666;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .quick-tags span:hover {
+      background: #b22222;
+      color: white;
+      transform: translateY(-2px);
+    }
+    
+    /* 提示信息 */
+    .tips {
+      margin-top: 24px;
+      padding: 16px;
+      background: #fff9f0;
+      border-left: 4px solid #ffa500;
+      border-radius: 8px;
+      text-align: left;
+    }
+    
+    .tips h4 {
+      font-size: 14px;
+      color: #ffa500;
+      margin-bottom: 8px;
+    }
+    
+    .tips ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    
+    .tips li {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+      padding-left: 16px;
+      position: relative;
+    }
+    
+    .tips li:before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #ffa500;
+    }
+    
+    /* Loading */
+    .loading {
+      display: none;
+      margin-top: 20px;
+      color: #b22222;
+      font-size: 14px;
+    }
+    
+    .loading.show {
+      display: block;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .search-card {
+        padding: 32px 24px;
+      }
+      
+      .search-card h1 {
+        font-size: 24px;
+      }
+      
+      .quick-tags {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/">🏠 首页</a>
+      <a href="/market">📊 市场概览</a>
+      <a href="/analysis" class="active">🔍 股票查询</a>
+      <a href="/tracking">📍 实时追踪</a>
+      <a href="/recommend">💡 智能推荐</a>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div class="search-card">
+      <h1>🔍 股票查询</h1>
+      <p class="subtitle">输入股票代码，查看完整的技术分析和买卖点信号</p>
+      
+      <div class="search-box">
+        <input 
+          type="text" 
+          id="stock-code" 
+          placeholder="请输入6位股票代码，如：600000、000001、300750"
+          maxlength="6"
+          autocomplete="off"
+        />
+      </div>
+      
+      <button class="search-btn" onclick="searchStock()">
+        🔍 立即查询
+      </button>
+      
+      <div class="loading" id="loading">
+        正在分析中，请稍候...
+      </div>
+      
+      <!-- 快捷搜索 -->
+      <div class="quick-search">
+        <h3>💡 热门股票</h3>
+        <div class="quick-tags">
+          <span onclick="quickSearch('600000')">600000 浦发银行</span>
+          <span onclick="quickSearch('000001')">000001 平安银行</span>
+          <span onclick="quickSearch('600519')">600519 贵州茅台</span>
+          <span onclick="quickSearch('000858')">000858 五粮液</span>
+          <span onclick="quickSearch('600036')">600036 招商银行</span>
+          <span onclick="quickSearch('601318')">601318 中国平安</span>
+          <span onclick="quickSearch('300750')">300750 宁德时代</span>
+          <span onclick="quickSearch('002594')">002594 比亚迪</span>
+        </div>
+      </div>
+      
+      <!-- 提示信息 -->
+      <div class="tips">
+        <h4>📝 使用说明</h4>
+        <ul>
+          <li>上证股票：以 60、68 开头（如：600000、688088）</li>
+          <li>深证股票：以 00 开头（如：000001、002594）</li>
+          <li>创业板：以 30 开头（如：300750）</li>
+          <li>北交所：以 43、83、87、92 开头</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const stockCodeInput = document.getElementById('stock-code');
+    const loading = document.getElementById('loading');
+    
+    // 输入框回车事件
+    stockCodeInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        searchStock();
+      }
+    });
+    
+    // 输入框自动转换为6位代码
+    stockCodeInput.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\D/g, ''); // 只保留数字
+      if (value.length > 6) {
+        value = value.substring(0, 6);
+      }
+      e.target.value = value;
+    });
+    
+    // 自动聚焦
+    window.addEventListener('load', function() {
+      stockCodeInput.focus();
+    });
+    
+    // 搜索股票
+    function searchStock() {
+      const code = stockCodeInput.value.trim();
+      
+      if (!code) {
+        alert('请输入股票代码！');
+        stockCodeInput.focus();
+        return;
+      }
+      
+      if (code.length !== 6) {
+        alert('股票代码必须是6位数字！');
+        stockCodeInput.focus();
+        return;
+      }
+      
+      // 显示加载状态
+      loading.classList.add('show');
+      
+      // 跳转到分析页面
+      window.location.href = `/analyze/${code}`;
+    }
+    
+    // 快捷搜索
+    function quickSearch(code) {
+      stockCodeInput.value = code;
+      searchStock();
+    }
+  </script>
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+
+</body>
+</html>

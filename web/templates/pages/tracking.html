@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>📍 实时追踪 - CZSC分析工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "微软雅黑", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+      color: #333;
+      padding-bottom: 40px;
+    }
+    /* 导航栏 */
+    .nav-container { width: 100%; background: #b22222; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .nav-wrapper { max-width: 1200px; margin: 0 auto; display: flex; justify-content: center; padding: 12px 20px; }
+    .nav-wrapper a { color: #fff; text-decoration: none; margin: 0 15px; font-size: 15px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav-wrapper a:hover, .nav-wrapper a.active { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #b22222 0%, #8b0000 100%);
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    header h1 { margin: 0; font-size: 26px; font-weight: 600; }
+    header .subtitle { font-size: 14px; margin-top: 8px; opacity: 0.9; }
+    header .last-update { font-size: 12px; margin-top: 4px; opacity: 0.75; }
+    /* 容器 */
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 20px; }
+    /* 概览卡片 */
+    .overview-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .overview-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.3s;
+    }
+    .overview-card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .overview-card .title { font-size: 14px; color: #666; margin-bottom: 12px; }
+    .overview-card .value { font-size: 28px; font-weight: 600; color: #b22222; }
+    .overview-card .sub-value { font-size: 13px; color: #999; margin-top: 8px; }
+    .overview-card.profit .value { color: #dc3545; }
+    .overview-card.loss .value { color: #28a745; }
+    /* 胜率统计 */
+    .winrate-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .winrate-section h3 { font-size: 16px; color: #b22222; margin-bottom: 16px; border-left: 4px solid #b22222; padding-left: 12px; }
+    .winrate-bars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .winrate-item { display: flex; flex-direction: column; }
+    .winrate-item .label { font-size: 13px; color: #666; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .winrate-item .bar-bg { background: #f0f0f0; height: 24px; border-radius: 12px; overflow: hidden; position: relative; }
+    .winrate-item .bar-fill { height: 100%; background: linear-gradient(90deg, #dc3545 0%, #c82333 100%); transition: width 0.6s ease; }
+    .winrate-item .bar-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: 600; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    /* Top/Bottom 股票 */
+    .topbottom-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .topbottom-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .topbottom-card h3 { font-size: 16px; margin-bottom: 16px; border-left: 4px solid; padding-left: 12px; }
+    .topbottom-card.top h3 { color: #dc3545; border-color: #dc3545; }
+    .topbottom-card.bottom h3 { color: #28a745; border-color: #28a745; }
+    .topbottom-list { list-style: none; }
+    .topbottom-list li { padding: 10px; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .topbottom-list li .stock { font-weight: 600; color: #333; }
+    .topbottom-list li .profit { font-weight: 600; }
+    .topbottom-list li .profit.positive { color: #dc3545; }
+    .topbottom-list li .profit.negative { color: #28a745; }
+    /* 风险提示 */
+    .alert-section {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+    }
+    .alert-section .icon { font-size: 24px; margin-right: 12px; }
+    .alert-section .content { flex: 1; }
+    .alert-section .title { font-weight: 600; color: #856404; margin-bottom: 4px; }
+    .alert-section .message { font-size: 14px; color: #856404; }
+    /* 股票列表 */
+    .tracking-list {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .tracking-list h3 { font-size: 18px; color: #b22222; margin-bottom: 16px; border-left: 4px solid #b22222; padding-left: 12px; }
+    /* 过滤器 */
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 8px 16px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+    .filter-btn:hover { border-color: #b22222; color: #b22222; }
+    .filter-btn.active { background: #b22222; color: white; border-color: #b22222; }
+    /* 表格 */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;
+    }
+    thead th {
+      background: #f8f9fa;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #666;
+      font-size: 13px;
+      border-bottom: 2px solid #e9ecef;
+    }
+    tbody tr {
+      background: #f8f9fa;
+      transition: all 0.3s;
+    }
+    tbody tr:hover {
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: translateX(4px);
+    }
+    tbody td {
+      padding: 16px 12px;
+      border-top: 1px solid #e9ecef;
+      border-bottom: 1px solid #e9ecef;
+    }
+    tbody td:first-child { border-left: 1px solid #e9ecef; border-radius: 8px 0 0 8px; }
+    tbody td:last-child { border-right: 1px solid #e9ecef; border-radius: 0 8px 8px 0; }
+    .stock-code { color: #b22222; font-weight: 600; text-decoration: none; }
+    .stock-code:hover { text-decoration: underline; }
+    .stock-name { font-size: 13px; color: #666; margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+    .badge.first { background: #ffd700; color: #856404; }
+    .badge.second { background: #c0c0c0; color: #495057; }
+    .badge.third { background: #cd7f32; color: #fff; }
+    .price-change {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .price-arrow { font-size: 18px; }
+    .current-price { font-size: 16px; font-weight: 600; }
+    .profit { font-size: 18px; font-weight: 600; }
+    .profit.positive { color: #dc3545; }
+    .profit.negative { color: #28a745; }
+    .hold-days { font-size: 12px; color: #999; margin-top: 4px; }
+    .actions button {
+      padding: 6px 12px;
+      margin: 0 4px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.3s;
+    }
+    .actions button:hover { border-color: #b22222; color: #b22222; }
+    .nodata {
+      padding: 40px;
+      text-align: center;
+      color: #999;
+      font-style: italic;
+    }
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    .loading::after {
+      content: '...';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+    @media (max-width: 768px) {
+      .topbottom-section { grid-template-columns: 1fr; }
+      .overview-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/">🏠 首页</a>
+      <a href="/market">📊 市场概览</a>
+      <a href="/advanced">🎯 高级功能</a>
+      <a href="/tracking" class="active">📍 实时追踪</a>
+      <a href="/recommend">💡 智能推荐</a>
+    </div>
+  </div>
+  <header>
+    <h1>📍 实时追踪信号总览</h1>
+    <div class="subtitle">追踪推荐股票的实时表现，把握最佳买卖时机</div>
+    <div class="last-update" id="last-update">最后更新: 加载中...</div>
+  </header>
+  <div class="container">
+    <!-- 概览卡片 -->
+    <div class="overview-cards">
+      <div class="overview-card">
+        <div class="title">📊 总追踪数</div>
+        <div class="value" id="total-count">--</div>
+        <div class="sub-value">正在追踪的股票</div>
+      </div>
+      <div class="overview-card profit">
+        <div class="title">✅ 盈利数</div>
+        <div class="value" id="profit-count">--</div>
+        <div class="sub-value" id="profit-percent">占比 --%</div>
+      </div>
+      <div class="overview-card loss">
+        <div class="title">❌ 亏损数</div>
+        <div class="value" id="loss-count">--</div>
+        <div class="sub-value" id="loss-percent">占比 --%</div>
+      </div>
+      <div class="overview-card">
+        <div class="title">💰 平均收益</div>
+        <div class="value" id="avg-profit">--%</div>
+        <div class="sub-value">持仓平均表现</div>
+      </div>
+    </div>
+    <!-- 胜率统计 -->
+    <div class="winrate-section">
+      <h3>📈 历史胜率统计</h3>
+      <div class="winrate-bars">
+        <div class="winrate-item">
+          <div class="label">
+            <span>7天胜率</span>
+            <span id="winrate-7">--%</span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" id="winrate-7-bar" style="width: 0%"></div>
+            <div class="bar-text" id="winrate-7-text">--%</div>
+          </div>
+        </div>
+        <div class="winrate-item">
+          <div class="label">
+            <span>14天胜率</span>
+            <span id="winrate-14">--%</span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" id="winrate-14-bar" style="width: 0%"></div>
+            <div class="bar-text" id="winrate-14-text">--%</div>
+          </div>
+        </div>
+        <div class="winrate-item">
+          <div class="label">
+            <span>30天胜率</span>
+            <span id="winrate-30">--%</span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" id="winrate-30-bar" style="width: 0%"></div>
+            <div class="bar-text" id="winrate-30-text">--%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Top/Bottom -->
+    <div class="topbottom-section">
+      <div class="topbottom-card top">
+        <h3>🔝 收益Top 5</h3>
+        <ul class="topbottom-list" id="top-list">
+          <li class="nodata">加载中...</li>
+        </ul>
+      </div>
+      <div class="topbottom-card bottom">
+        <h3>📉 亏损Top 5</h3>
+        <ul class="topbottom-list" id="bottom-list">
+          <li class="nodata">加载中...</li>
+        </ul>
+      </div>
+    </div>
+    <!-- 风险提示 -->
+    <div class="alert-section" id="alert-section" style="display:none;">
+      <div class="icon">⚠️</div>
+      <div class="content">
+        <div class="title">风险提示</div>
+        <div class="message" id="alert-message"></div>
+      </div>
+    </div>
+    <!-- 股票列表 -->
+    <div class="tracking-list">
+      <h3>📋 追踪列表</h3>
+      <!-- 过滤器 -->
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all">全部</button>
+        <button class="filter-btn" data-filter="profit">仅盈利</button>
+        <button class="filter-btn" data-filter="loss">仅亏损</button>
+        <button class="filter-btn" data-filter="first">一买</button>
+        <button class="filter-btn" data-filter="second">二买</button>
+        <button class="filter-btn" data-filter="third">三买</button>
+      </div>
+      <table id="tracking-table">
+        <thead>
+          <tr>
+            <th>股票</th>
+            <th>推荐类型</th>
+            <th>推荐日期</th>
+            <th>价格变化</th>
+            <th>收益率</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="6" class="loading">正在加载追踪数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    let allData = [];
+    let currentFilter = 'all';
+    // 加载数据
+    async function loadData() {
+      try {
+        // 加载追踪数据
+        const trackingRes = await fetch('/static/tracking_history.json');
+        const trackingData = await trackingRes.json();
+        // 加载胜率数据
+        const winrateRes = await fetch('/static/win_rate_stats.json');
+        const winrateData = await winrateRes.json();
+        allData = trackingData;
+        // 更新页面
+        updateOverview();
+        updateWinrate(winrateData);
+        updateTopBottom();
+        updateTable();
+        updateAlerts();
+        updateLastUpdate();
+      } catch (err) {
+        console.error('加载失败:', err);
+        document.querySelector('#tracking-table tbody').innerHTML = 
+          '<tr><td colspan="6" class="nodata">⚠️ 加载数据失败，请刷新重试</td></tr>';
+      }
+    }
+    // 更新概览
+    function updateOverview() {
+      const total = allData.length;
+      const profit = allData.filter(d => d.涨跌幅 > 0).length;
+      const loss = total - profit;
+      const avgProfit = (allData.reduce((sum, d) => sum + d.涨跌幅, 0) / total).toFixed(2);
+      document.getElementById('total-count').textContent = total;
+      document.getElementById('profit-count').textContent = profit;
+      document.getElementById('loss-count').textContent = loss;
+      document.getElementById('avg-profit').textContent = avgProfit + '%';
+      document.getElementById('avg-profit').style.color = avgProfit >= 0 ? '#dc3545' : '#28a745';
+      document.getElementById('profit-percent').textContent = `占比 ${(profit/total*100).toFixed(1)}%`;
+      document.getElementById('loss-percent').textContent = `占比 ${(loss/total*100).toFixed(1)}%`;
+    }
+    // 更新胜率
+    function updateWinrate(data) {
+      if (!data) return;
+      const periods = ['7天', '14天', '30天'];
+      periods.forEach(period => {
+        const key = period === '7天' ? '7' : period === '14天' ? '14' : '30';
+        const winrate = data[period]?.胜率 || 0;
+        document.getElementById(`winrate-${key}`).textContent = winrate + '%';
+        document.getElementById(`winrate-${key}-bar`).style.width = winrate + '%';
+        document.getElementById(`winrate-${key}-text`).textContent = winrate + '%';
+      });
+    }
+    // 更新Top/Bottom
+    function updateTopBottom() {
+      const sorted = [...allData].sort((a, b) => b.涨跌幅 - a.涨跌幅);
+      const top5 = sorted.slice(0, 5);
+      const bottom5 = sorted.slice(-5).reverse();
+      document.getElementById('top-list').innerHTML = top5.map(d => `
+        <li>
+          <span class="stock">${d.name} (${d.code})</span>
+          <span class="profit positive">+${d.涨跌幅.toFixed(2)}%</span>
+        </li>
+      `).join('');
+      document.getElementById('bottom-list').innerHTML = bottom5.map(d => `
+        <li>
+          <span class="stock">${d.name} (${d.code})</span>
+          <span class="profit negative">${d.涨跌幅.toFixed(2)}%</span>
+        </li>
+      `).join('');
+    }
+    // 更新表格
+    function updateTable() {
+      let filtered = allData;
+      // 应用过滤器
+      if (currentFilter === 'profit') {
+        filtered = allData.filter(d => d.涨跌幅 > 0);
+      } else if (currentFilter === 'loss') {
+        filtered = allData.filter(d => d.涨跌幅 <= 0);
+      } else if (currentFilter === 'first') {
+        filtered = allData.filter(d => d.推荐类型 === 'first_type');
+      } else if (currentFilter === 'second') {
+        filtered = allData.filter(d => d.推荐类型 === 'second_type');
+      } else if (currentFilter === 'third') {
+        filtered = allData.filter(d => d.推荐类型 === 'third_type');
+      }
+      // 按收益率排序
+      filtered.sort((a, b) => b.涨跌幅 - a.涨跌幅);
+      const tbody = document.querySelector('#tracking-table tbody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="nodata">暂无符合条件的股票</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(d => {
+        const profitClass = d.涨跌幅 > 0 ? 'positive' : 'negative';
+        const profitSign = d.涨跌幅 > 0 ? '+' : '';
+        const typeMap = {'first_type': '一买', 'second_type': '二买', 'third_type': '三买'};
+        const badgeClass = {'first_type': 'first', 'second_type': 'second', 'third_type': 'third'};
+        return `
+          <tr>
+            <td>
+              <a href="/analyze/${d.code}" class="stock-code">${d.code}</a>
+              <div class="stock-name">${d.name}</div>
+            </td>
+            <td>
+              <span class="badge ${badgeClass[d.推荐类型]}">${typeMap[d.推荐类型]}</span>
+            </td>
+            <td>${d.推荐日期}</td>
+            <td>
+              <div class="price-change">
+                <span>¥${d.推荐价格.toFixed(2)}</span>
+                <span class="price-arrow">→</span>
+                <span class="current-price">¥${d.当前价格.toFixed(2)}</span>
+              </div>
+            </td>
+            <td>
+              <div class="profit ${profitClass}">${profitSign}${d.涨跌幅.toFixed(2)}%</div>
+              <div class="hold-days">持有${d.持有天数}天</div>
+            </td>
+            <td class="actions">
+              <button onclick="window.open('/analyze/${d.code}', '_blank')">详情</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    // 更新风险提示
+    function updateAlerts() {
+      const bigLoss = allData.filter(d => d.涨跌幅 < -5);
+      const longHold = allData.filter(d => d.持有天数 > 30);
+      let alerts = [];
+      if (bigLoss.length > 0) alerts.push(`${bigLoss.length}只股票跌幅超过5%`);
+      if (longHold.length > 0) alerts.push(`${longHold.length}只股票持有超过30天`);
+      if (alerts.length > 0) {
+        document.getElementById('alert-section').style.display = 'flex';
+        document.getElementById('alert-message').textContent = alerts.join(' | ');
+      }
+    }
+    // 更新最后更新时间
+    function updateLastUpdate() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+      document.getElementById('last-update').textContent = `最后更新: ${timeStr}`;
+    }
+    // 过滤器事件
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        updateTable();
+      });
+    });
+    // 初始加载
+    loadData();
+    // 每5分钟自动刷新
+    setInterval(loadData, 5 * 60 * 1000);
+  </script>
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+
+</body>
+</html>

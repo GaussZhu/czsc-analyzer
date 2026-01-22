@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>股票分析 - CZSC分析工具</title>
+  <style>
+    body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;margin:0;padding:0;background:#fff8f5;color:#333}
+    .nav-container{width:100%;background:#b22222;display:flex;justify-content:center}
+    .nav-wrapper{width:100%;max-width:900px;display:flex;justify-content:center;padding:10px 0}
+    .nav-wrapper a{color:#fff;text-decoration:none;margin:0 15px;font-size:15px;padding:5px 10px;border-radius:5px}
+    .nav-wrapper a:hover{background:rgba(255,255,255,.2)}
+    .container{max-width:900px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:25px}
+    .header{background:#b22222;color:#fff;padding:15px 20px;border-radius:6px;margin-bottom:20px}
+    .header h1{margin:0;font-size:22px}
+    .section{margin-bottom:30px}
+    .section-title{font-size:18px;font-weight:700;margin-bottom:15px;color:#b22222;border-left:4px solid #b22222;padding-left:10px}
+    .input-group{display:flex;gap:10px;margin-bottom:20px}
+    .input-group input{flex:1;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px}
+    .input-group button{padding:10px 20px;background:#b22222;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px}
+    .input-group button:hover{background:#991b1b}
+    #loading{display:none;color:#b22222;text-align:center;padding:20px}
+    #result{display:none}
+    .placeholder{background:#fceeee;color:#666;padding:15px;border-radius:4px;text-align:center}
+    .footer{text-align:center;font-size:13px;color:#888;margin-top:40px;padding-top:20px;border-top:1px solid #ddd}
+  </style>
+</head>
+<body>
+  <div class="nav-container">
+    <div class="nav-wrapper">
+      <a href="/">🏠 首页</a>
+      <a href="/analysis">📊 股票分析</a>
+      <a href="/tracking">📍 实时追踪</a>
+      <a href="/recommend">💡 智能推荐</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>📊 股票分析</h1>
+    </div>
+
+    <div class="section">
+      <div class="input-group">
+        <input type="text" id="stockCode" placeholder="请输入股票代码（如：600000）" />
+        <button onclick="analyzeStock()">分析</button>
+      </div>
+    </div>
+
+    <div id="loading">正在分析，请稍候...</div>
+    
+    <div id="result">
+      <div class="section">
+        <div class="section-title">分析结果</div>
+        <div id="resultContent"></div>
+      </div>
+    </div>
+
+    <div class="placeholder" id="placeholder">
+      请输入股票代码开始分析
+    </div>
+
+    <div class="footer">
+      分析结果基于缠中说禅技术分析理论，仅供参考，不构成投资建议。<br>
+      © 2025 CZSC股票分析工具
+    </div>
+  </div>
+
+  <script>
+    function analyzeStock() {
+      const code = document.getElementById('stockCode').value.trim();
+      if (!code) {
+        alert('请输入股票代码');
+        return;
+      }
+
+      // 直接跳转到完整的分析页面
+      window.location.href = `/analyze/${code}`;
+    }
+
+    // 支持回车键触发
+    document.getElementById('stockCode').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        analyzeStock();
+      }
+    });
+  </script>
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?aae7200461bad12ff3d02a5623e0b4f6";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+
+</body>
+</html>

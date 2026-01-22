@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>API测试页面</title>
+    <style>
+        body { font-family: "微软雅黑", sans-serif; padding: 20px; }
+        .test-box { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>前端API测试</h1>
+    <div id="recommend-test" class="test-box">
+        <h2>推荐API测试</h2>
+        <div id="recommend-result">加载中...</div>
+    </div>
+    <div id="tracking-test" class="test-box">
+        <h2>追踪API测试</h2>
+        <div id="tracking-result">加载中...</div>
+    </div>
+    
+    <script>
+        // 测试推荐API
+        fetch('/api/tracking/recommend')
+            .then(resp => resp.json())
+            .then(result => {
+                const div = document.getElementById('recommend-result');
+                if (result.success && result.data) {
+                    let html = '<p class="success">✅ API调用成功</p>';
+                    let totalBuy = 0, totalSell = 0;
+                    
+                    for (let market in result.data) {
+                        const buyList = result.data[market]['买点推荐'] || [];
+                        const sellList = result.data[market]['卖点推荐'] || [];
+                        totalBuy += buyList.length;
+                        totalSell += sellList.length;
+                        
+                        if (buyList.length > 0 || sellList.length > 0) {
+                            html += `<p>${market}: ${buyList.length}买 ${sellList.length}卖</p>`;
+                        }
+                    }
+                    
+                    html += `<p><strong>总计: ${totalBuy}买 ${totalSell}卖</strong></p>`;
+                    div.innerHTML = html;
+                } else {
+                    div.innerHTML = '<p class="error">❌ 数据格式错误</p>';
+                }
+            })
+            .catch(err => {
+                document.getElementById('recommend-result').innerHTML = 
+                    `<p class="error">❌ 请求失败: ${err.message}</p>`;
+            });
+        
+        // 测试追踪API
+        fetch('/api/tracking/list')
+            .then(resp => resp.json())
+            .then(result => {
+                const div = document.getElementById('tracking-result');
+                if (result.success && result.data) {
+                    let html = '<p class="success">✅ API调用成功</p>';
+                    html += `<p>追踪数量: ${result.data.length}</p>`;
+                    
+                    result.data.slice(0, 5).forEach(item => {
+                        html += `<p>${item.code} ${item.name}: ${item.current_profit}%</p>`;
+                    });
+                    
+                    div.innerHTML = html;
+                } else {
+                    div.innerHTML = '<p class="error">❌ 数据格式错误</p>';
+                }
+            })
+            .catch(err => {
+                document.getElementById('tracking-result').innerHTML = 
+                    `<p class="error">❌ 请求失败: ${err.message}</p>`;
+            });
+    </script>
+</body>
+</html>
